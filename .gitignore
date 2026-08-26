@@ -39,3 +39,7 @@ htmlcov/
 !docs/methodology.pdf
 !docs/demo.mp4.placeholder
 
+
+build_test/
+dist_test/
+
