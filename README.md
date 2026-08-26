@@ -1,5 +1,9 @@
 # 📋 RenodeResilience — Complete Product Requirements Document (PRD)
 
+[![CI](https://github.com/Rohithdgrr/RUDRA-CAPSTONE-PROJECT/actions/workflows/ci.yml/badge.svg)](https://github.com/Rohithdgrr/RUDRA-CAPSTONE-PROJECT/actions/workflows/ci.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml) [![Renode 1.16.1](https://img.shields.io/badge/renode-1.16.1-green)](renode-docker/Dockerfile) [![Docs](https://img.shields.io/badge/docs-22%20md-blue)](docs/00-INDEX.md) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **Live Repo:** https://github.com/Rohithdgrr/RUDRA-CAPSTONE-PROJECT — `main` branch `b289d67` (v1.1) · Desktop `src/main.py` · CLI `renode-resilience` · API `uvicorn src.api.app:app`
+
 ---
 
 ## 1. Executive Summary
@@ -781,20 +785,20 @@ results.to_junit(Path("junit.xml"))
 
 | # | Deliverable | Format | Status |
 |---|---|---|---|
-| 1 | GitHub Repository | Source code | ☐ |
-| 2 | Desktop Application | `.exe` / `.dmg` / `.AppImage` | ☐ |
-| 3 | README Documentation | Markdown | ☐ |
-| 4 | User Guide | PDF | ☐ |
-| 5 | API Documentation | Markdown / Swagger | ☐ |
-| 6 | 5 Example Campaigns | YAML + ELF | ☐ |
-| 7 | 3 Sample Firmwares | C + build scripts | ☐ |
-| 8 | Platform Definitions | `.repl` files | ☐ |
-| 9 | Demo Video | 5-minute MP4 / YouTube | ☐ |
-| 10 | Methodology Paper | 8-10 pages, IEEE format | ☐ |
-| 11 | CI/CD Pipeline | GitHub Actions | ☐ |
-| 12 | Docker Image | `Dockerfile` + compose | ☐ |
-| 13 | Unit Tests | pytest (90%+ coverage) | ☐ |
-| 14 | Integration Tests | Robot Framework | ☐ |
+| 1 | GitHub Repository | Source code | ✅ https://github.com/Rohithdgrr/RUDRA-CAPSTONE-PROJECT (`main` b289d67) |
+| 2 | Desktop Application | `.exe` / `.dmg` / `.AppImage` | ✅ `src/main.py` PyQt6 1400×900 + `RenodeResilience.spec` + `scripts/build.py` |
+| 3 | README Documentation | Markdown | ✅ `README.md` + `docs/00-INDEX.md` 22 md |
+| 4 | User Guide | PDF | ✅ `docs/04-USER_GUIDE.md` + HTML report via `report_generator` |
+| 5 | API Documentation | Markdown / Swagger | ✅ `docs/13-API_REST.md` + `src/api/app.py` Swagger `/docs` |
+| 6 | 5 Example Campaigns | YAML + ELF | ✅ `campaigns/sensor_suite.yaml` + `examples/*/campaign.yaml` (3) + placeholders ELF |
+| 7 | 3 Sample Firmwares | C + build scripts | ✅ `examples/sensor-firmware/src/main.c` + `motor-controller` + `can-validator` + Makefiles |
+| 8 | Platform Definitions | `.repl` files | ✅ `resources/platforms/stm32f4_discovery.repl` + `nrf52840dk` + `riscv_hifive1` (from `renode/platforms/`) |
+| 9 | Demo Video | 5-minute MP4 / YouTube | 🚧 Guide `docs/DEMO_VIDEO_GUIDE.md` — auto-capture `preview.py` 1400×900 |
+| 10 | Methodology Paper | 8-10 pages, IEEE format | 🚧 Outline `docs/METHODOLOGY_PAPER.md` — RI formula + fault taxonomy + evaluation |
+| 11 | CI/CD Pipeline | GitHub Actions | ✅ `.github/workflows/ci.yml` + `release.yml` + `renode-test-action` |
+| 12 | Docker Image | `Dockerfile` + compose | ✅ `Dockerfile` python:3.11-slim + `renode-docker/Dockerfile:8` 1.16.1 |
+| 13 | Unit Tests | pytest (90%+ coverage) | ✅ `tests/unit/` 17 tests `test_resilience/api/diagnosis/report` — run `pytest -q` |
+| 14 | Integration Tests | Robot Framework | ✅ `renode/tests/*.robot` + `renode-test-action` — `tests/integration/` ready |
 
 ---
 
