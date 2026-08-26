@@ -4,7 +4,9 @@ __pycache__/
 .venv/
 venv/
 build/
-dist/
+dist/*.exe
+dist/*.dmg
+dist/*.AppImage
 *.egg-info/
 .pytest_cache/
 .coverage
@@ -34,4 +36,6 @@ index.html
 
 htmlcov/
 .coverage
+!docs/methodology.pdf
+!docs/demo.mp4.placeholder
 

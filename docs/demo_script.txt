@@ -1,0 +1,1 @@
+Demo 5min: 0:00 title, 1:00 arch, 2:00 GUI live, 3:00 CLI, 3:40 API, 4:10 report, 4:40 wrap per DEMO_VIDEO_GUIDE.md
