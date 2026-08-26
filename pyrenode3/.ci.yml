@@ -1,0 +1,101 @@
+image: "d2s://external/docker/debian:bookworm"
+
+variables:
+  COMMON_DEPS: git autoconf automake coreutils g++ gcc cmake libgtk2.0-0 libtool policykit-1 python3 python3 python3-pip python3-venv screen uml-utilities wget curl jq zip
+
+.install-dependencies: &install_dependencies |-
+    apt-get -qqy update > /dev/null
+    apt-get -qqy install ${COMMON_DEPS} > /dev/null
+    wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+    dpkg -i packages-microsoft-prod.deb
+    rm packages-microsoft-prod.deb
+    apt-get -qqy update > /dev/null
+
+# Due to multiple dotnet versions being used in this CI, install-dotnet cannot
+# be placed in before_get_sources because version variable will be exapnded
+# only after hash calculation which results in hash collions and therefore
+# overlay mixups between different dotnet jobs.
+.install-dotnet: &install-dotnet |-
+    apt-get -qqy install dotnet-sdk-$CI_PARALLEL_NAME > /dev/null
+
+.init-python: &init_python |-
+    python3 -m venv .venv && source .venv/bin/activate
+    pip install .
+    pip install -r examples/requirements.txt
+
+.dotnet-sdk-versions: &dotnet_sdk_versions
+  - "8.0"
+  - "9.0"
+  - "10.0"
+
+test-installed-dotnet-pkg:
+  stage: build
+  tags: ['ace-x86_64']
+  before_get_sources:
+    - *install_dependencies
+  script:
+    - *init_python
+    # Download and install Renode
+    - wget --progress=dot:giga https://builds.renode.io/renode-latest.deb
+    - apt-get -y install ./renode-latest.deb
+    - ./examples/run_examples.sh 
+
+.test-dotnet-build:
+  stage: build
+  tags: ['ace-x86_64']
+  before_get_sources:
+    - *install_dependencies
+  before_script:
+    - *install-dotnet
+  script:
+    - *init_python
+    # Build Renode
+    - git clone https://github.com/antmicro/renode.git
+    - pushd renode && ./build.sh --net && popd
+    - export PYRENODE_PATH=$PWD/renode
+    - ./examples/run_examples.sh 
+
+test-dotnet-build:
+  extends: .test-dotnet-build
+  parallel: *dotnet_sdk_versions
+
+test-dotnet-single-file-portable:
+  stage: build
+  tags: ['ace-x86_64']
+  before_get_sources:
+    - *install_dependencies
+  script:
+    - *init_python
+    # Download Renode pkg
+    - wget --progress=dot:giga https://builds.renode.io/renode-1.16.1+20260520gita52e7097e.linux-portable-dotnet.tar.gz
+    - export PYRENODE_PATH=$PWD/renode-1.16.1+20260520gita52e7097e.linux-portable-dotnet.tar.gz
+    - ./examples/run_examples.sh 
+
+test-dotnet-portable:
+  stage: build
+  tags: ['ace-x86_64']
+  before_get_sources:
+    - *install_dependencies
+  script:
+    - *init_python
+    # Download Renode pkg
+    - wget --progress=dot:giga https://builds.renode.io/renode-latest.linux-portable.tar.gz
+    - export PYRENODE_PATH=$PWD/renode-latest.linux-portable.tar.gz
+    - ./examples/run_examples.sh 
+
+.test-dotnet-pkg:
+  stage: build
+  tags: ['ace-x86_64']
+  before_get_sources:
+    - *install_dependencies
+  before_script:
+    - *install-dotnet
+  script:
+    - *init_python
+    - curl -s https://builds.renode.io/renode-latest.linux.tar.gz -o renode-dotnet.tar.gz
+    - export PYRENODE_PATH=$PWD/renode-dotnet.tar.gz
+    - ./examples/run_examples.sh 
+
+test-dotnet-pkg:
+  extends: .test-dotnet-pkg
+  parallel: *dotnet_sdk_versions

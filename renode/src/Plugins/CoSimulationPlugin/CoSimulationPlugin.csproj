@@ -1,0 +1,14 @@
+<Project DefaultTargets="Build" Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <AssemblyName>CoSimulationPlugin</AssemblyName>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="IntegrationLibrary\**\*"/>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\lib\AntShell\AntShell\AntShell.csproj"/>
+    <ProjectReference Include="..\..\Infrastructure\src\Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

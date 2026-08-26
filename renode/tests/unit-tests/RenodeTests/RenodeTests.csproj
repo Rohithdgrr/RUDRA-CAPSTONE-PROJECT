@@ -1,0 +1,26 @@
+<Project DefaultTargets="Build" Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <RollForward>Major</RollForward>
+    <AssemblyName>RenodeTests</AssemblyName>
+    <OutputPath>..\..\..\output\bin\$(Configuration)</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.13.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" /> 
+    <PackageReference Include="Moq" Version="4.18.1" />
+    <Reference Include="Sprache">
+      <HintPath>..\..\..\lib\resources\libraries\Sprache.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Renode\Renode.csproj"/>
+    <ProjectReference Include="..\..\..\src\Infrastructure\src\Infrastructure.csproj"/>
+    <ProjectReference Include="..\..\..\src\Infrastructure\src\Emulator\Main\Tests\UnitTests\UnitTests.csproj"/>
+    <ProjectReference Include="..\..\..\src\Infrastructure\src\Infrastructure.csproj"/>
+    <ProjectReference Include="..\..\..\lib\AntShell\AntShell\AntShell.csproj"/>
+  </ItemGroup>
+</Project>

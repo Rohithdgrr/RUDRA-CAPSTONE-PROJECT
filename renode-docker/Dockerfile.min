@@ -1,0 +1,29 @@
+# This dockerfile builds a minimized runtime image.
+ARG RENODE_DEST_BUILDER=/opt/renode/
+ARG RENODE_VERSION=1.16.1
+ARG RENODE_URL=https://github.com/renode/renode/releases/download/v${RENODE_VERSION}/renode-${RENODE_VERSION}.linux-dotnet.tar.gz
+
+
+# Ubuntu used as builder image for quick tool access, could be minimized if desired
+FROM ubuntu:24.04 AS builder
+
+ARG RENODE_URL
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends sudo ca-certificates wget
+
+RUN wget ${RENODE_URL} -O /opt/renode.tar.gz
+
+RUN tar -vxf /opt/renode.tar.gz -C /opt
+
+
+# bookworm-slim used as runtime image to minimize size
+FROM mcr.microsoft.com/dotnet/runtime:8.0-bookworm-slim AS runtime
+
+ARG RENODE_DEST_BUILDER
+ARG RENODE_VERSION
+
+COPY --from=builder /opt/renode_${RENODE_VERSION}--dotnet/ ${RENODE_DEST_BUILDER}
+ENV PATH="$PATH:${RENODE_DEST_BUILDER}"
+
+CMD ["renode"]

@@ -1,0 +1,10 @@
+name: "Sensor Quickstart"
+firmware: "examples/sensor-firmware/build/sensor.elf"
+platform: "resources/platforms/stm32f4_discovery.repl"
+duration: 30
+parallel: 2
+faults:
+  - id: SF-01
+    params: { value: 25.0, target: "i2c0.sensor0" }
+    expected: "detect_stuck_sensor"
+    timeout_ms: 5000

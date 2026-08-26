@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -e
+set -u
+
+# this is to support running Renode from an external directory and via a symlink
+ROOT_PATH="$(cd $(dirname $(readlink -f $0 2>/dev/null || echo $0)); echo $PWD)"
+
+. "$ROOT_PATH/tools/common.sh"
+
+OUTPUT_PATH="$ROOT_PATH/output/bin"
+
+TARGET="Release"
+QUIET=false
+TRACE=false
+
+PARAMS=()
+while [[ "$#" -gt 0 ]]
+do
+    case $1 in
+    -d|--debug)
+        TARGET="Debug"
+        ;;
+    -q|--quiet)
+        QUIET=true
+        ;;
+    --net)
+        echo "'--net' flag is a no-op and will be removed in the future" >&1
+        ;;
+    --trace)
+        TRACE=true
+        TRACE_FORMAT=${2:-}
+        case $TRACE_FORMAT in
+            Chromium|chromium)
+                TRACE_FORMAT="Chromium"
+                shift
+                ;;
+            Speedscope|speedscope)
+                TRACE_FORMAT="Speedscope"
+                shift
+                ;;
+            Nettrace|nettrace)
+                TRACE_FORMAT="Nettrace"
+                shift
+                ;;
+            *)
+                # No format specified - use default, don't shift argument list
+                TRACE_FORMAT="Nettrace"
+                ;;
+        esac
+        ;;
+    *)
+        PARAMS+=("$1")
+        ;;
+    esac
+    shift
+done
+
+if ${QUIET:-false}
+then
+    exec 2>/dev/null
+fi
+
+if ! $TRACE
+then
+    TRACE_COMMAND=""
+else
+    TRACE_COMMAND="dotnet-trace collect --format ${TRACE_FORMAT} --"
+fi
+
+RENODE_DIR="${OUTPUT_PATH}/${TARGET}"
+
+if $ON_WINDOWS && [[ -e "$RENODE_DIR/RenodeWPF.dll" ]]; then
+    RENODE_DLL="$RENODE_DIR/RenodeWPF.dll"
+else
+    RENODE_DLL="$RENODE_DIR/Renode.dll"
+fi
+
+${TRACE_COMMAND} dotnet "$RENODE_DLL" "${PARAMS[@]:-}"

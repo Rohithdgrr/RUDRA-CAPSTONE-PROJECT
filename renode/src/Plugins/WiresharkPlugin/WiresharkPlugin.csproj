@@ -1,0 +1,11 @@
+<Project DefaultTargets="Build" Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <AssemblyName>WiresharkPlugin</AssemblyName>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\lib\AntShell\AntShell\AntShell.csproj"/>
+    <ProjectReference Include="..\..\Infrastructure\src\Infrastructure.csproj"/>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+QMainWindow { background: #1E1E2F; }
+QDockWidget::title { background: #2A2A3C; color: #E0E0E0; padding: 6px; }
+QTableView { gridline-color: #3A3A4C; selection-background-color: #3498DB; alternate-background-color: #252538; background: #2A2A3C; color: #E0E0E0; }
+QTextEdit#Console { font-family: "Consolas"; font-size: 9pt; color: #E0E0E0; background: #1E1E2F; }
+QProgressBar::chunk { background: #4CAF50; }
+QPushButton { background: #3498DB; color: white; border-radius: 4px; padding: 6px 12px; }
+QPushButton:hover { background: #5DADE2; }
+QLabel { color: #E0E0E0; }
+QTreeWidget { background: #2A2A3C; color: #E0E0E0; }
