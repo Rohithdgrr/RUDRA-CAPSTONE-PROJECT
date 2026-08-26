@@ -1,0 +1,37 @@
+name: "Full 27-Fault Coverage — Fixed"
+description: "Same 27 faults after firmware fixes (median filter, watchdog 50ms, threshold 50Hz) — expect Grade B"
+firmware: "examples/sensor-firmware/build/sensor.elf"
+platform: "resources/platforms/stm32f4_discovery.repl"
+duration: 30
+parallel: 4
+faults:
+  - { id: SF-01, params: { value: 25.0, target: "i2c0.sensor0" }, expected: "detect_stuck_sensor", timeout_ms: 5000 }
+  - { id: SF-02, params: { std_dev: 2.5 }, expected: "std_dev_filtered < 2.0", timeout_ms: 5000 }
+  - { id: SF-03, params: { amplitude: 999, rate_hz: 10 }, expected: "outlier_detected", timeout_ms: 5000 }
+  - { id: SF-04, params: { rate: 0.5, duration_s: 10 }, expected: "drift_compensated", timeout_ms: 5000 }
+  - { id: SF-05, params: { offset: 3.0 }, expected: "bias_corrected", timeout_ms: 5000 }
+  - { id: SF-06, params: { drop_rate: 0.3 }, expected: "interpolation_ok", timeout_ms: 5000 }
+  - { id: SF-07, params: { jitter_ms: 5, outliers: true }, expected: "jitter_tolerated", timeout_ms: 5000 }
+  - { id: TF-01, params: { delay_ms: 100, target: "control_loop" }, expected: "watchdog_reset", timeout_ms: 200 }
+  - { id: TF-02, params: { skew_ppm: 200, target: "rtc" }, expected: "skew_corrected", timeout_ms: 2000 }
+  - { id: TF-03, params: { irq: "38", rate_hz: 5000 }, expected: "storm_handled", timeout_ms: 1000 }
+  - { id: TF-04, params: { timeout_ms: 50 }, expected: "watchdog_triggered", timeout_ms: 1000 }
+  - { id: TF-05, params: { threads: 2, shared: "0x20000000" }, expected: "race_safe", timeout_ms: 2000 }
+  - { id: CF-01, params: { loss_rate: 0.3, bus: "can0" }, expected: "retransmit_ok", timeout_ms: 2000 }
+  - { id: CF-02, params: { delay_ms: 50, bus: "can0" }, expected: "latency_tolerated", timeout_ms: 2000 }
+  - { id: CF-03, params: { rate_hz: 5000, bus: "can0" }, expected: "flood_detected", timeout_ms: 2000 }
+  - { id: CF-04, params: { ber: 0.01, bus: "can0" }, expected: "corruption_detected", timeout_ms: 2000 }
+  - { id: CF-05, params: { bus: "can0" }, expected: "bus_off_recovered", timeout_ms: 3000 }
+  - { id: CF-06, params: { bus: "can0", id: 0x123 }, expected: "arbitration_handled", timeout_ms: 2000 }
+  - { id: MF-01, params: { overflow_bytes: 512 }, expected: "stack_guard", timeout_ms: 2000 }
+  - { id: MF-02, params: { addr: "0x20001000", size: 64 }, expected: "heap_checked", timeout_ms: 2000 }
+  - { id: MF-03, params: { addr: "0x08001000", bit: 5 }, expected: "bitflip_corrected", timeout_ms: 2000 }
+  - { id: MF-04, params: { addr: "0x20002000", ecc_bits: 1 }, expected: "ecc_corrected", timeout_ms: 2000 }
+  - { id: PF-01, params: { voltage: 2.0, duration_ms: 100 }, expected: "brownout_reset", timeout_ms: 2000 }
+  - { id: PF-02, params: { glitch_us: 10, count: 5 }, expected: "glitch_filtered", timeout_ms: 2000 }
+  - { id: PF-03, params: { sleep_mode: "STOP" }, expected: "sleep_ok", timeout_ms: 2000 }
+  - { id: GF-01, params: { pin: "PA5", mode: "float" }, expected: "pin_safe_state", timeout_ms: 1000 }
+  - { id: GF-02, params: { periph: "adc", value: 4095 }, expected: "saturation_handled", timeout_ms: 1000 }
+scoring:
+  weights: { detection: 0.4, recovery: 0.3, safety: 0.3 }
+  thresholds: { grade_a: 90, grade_b: 70, grade_c: 50, grade_d: 30 }

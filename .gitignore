@@ -21,6 +21,7 @@ results/*.json
 .DS_Store
 Thumbs.db
 *.spec
+!RenodeResilience.spec
 
 # renode submodules keep but ignore their .git
 **/.git/
@@ -29,4 +30,8 @@ Thumbs.db
 preview*.png
 preview.py
 index.html
+
+
+htmlcov/
+.coverage
 

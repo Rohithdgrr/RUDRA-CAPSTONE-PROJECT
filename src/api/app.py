@@ -83,6 +83,11 @@ def get_report(run_id: str, format: str = "json"):
         p = Path(f"results/{run_id}.pdf"); cr.to_pdf(p); return FileResponse(str(p), media_type="application/pdf")
     return JSONResponse(data)
 
+@app.post("/api/v1/upload/firmware")
+def upload_firmware(file: bytes = None):
+    # Stub for firmware upload — in real deployment, save to temp and validate ELF
+    return {"filename": "firmware.elf", "size": len(file) if file else 0, "status": "uploaded (stub)"}
+
 @app.post("/api/v1/compare")
 def compare(payload: dict):
     # payload: {"baseline":"id1","optimized":"id2"} or inline results

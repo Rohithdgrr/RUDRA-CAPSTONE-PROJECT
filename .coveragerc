@@ -1,0 +1,17 @@
+[run]
+source = src
+omit =
+    src/gui/*
+    src/main.py
+    src/main_window.py
+    src/app.py
+    src/api/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+show_missing = True
+skip_covered = False

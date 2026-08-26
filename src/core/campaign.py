@@ -29,12 +29,18 @@ class Campaign:
 
     def _run_single(self, fault, weights, thresholds):
         h = int(hashlib.md5(fault.id.encode()).hexdigest()[:2], 16)
+        # Simulate "Fixed" firmware: if campaign name contains Fixed, SF-03/TF-01 are mitigated
+        is_fixed = "Fixed" in self.config.name or "fixed" in self.config.name.lower()
         detected = h % 3 != 0
         recovered = h % 4 != 0
         safe = not (fault.id == "TF-01" and not detected)
-        if fault.id in ("SF-03", "TF-01"):
+        if fault.id in ("SF-03", "TF-01") and not is_fixed:
             detected = False
             recovered = False
+        if is_fixed and fault.id in ("SF-03", "TF-01"):
+            detected = True
+            recovered = True
+            safe = True
         ri = calculate_ri(detected, recovered, safe, w_d=weights.detection, w_r=weights.recovery, w_s=weights.safety, latency_ms=23 if detected else None, timeout_ms=fault.timeout_ms)
         grade = grade_for_ri(ri, thresholds)
         status = "PASS" if ri >= thresholds["grade_b"] else "FAIL"

@@ -1,6 +1,7 @@
 """Campaign Editor form."""
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QComboBox, QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QCheckBox, QHBoxLayout
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QComboBox, QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QCheckBox, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import pyqtSignal
+from pathlib import Path
 
 class CampaignEditor(QWidget):
     runRequested = pyqtSignal()
@@ -10,6 +11,15 @@ class CampaignEditor(QWidget):
         lay.addWidget(QLabel("Campaign Designer"))
         self.name_edit = QLineEdit("Sensor Suite Validation")
         lay.addWidget(self.name_edit)
+        # Firmware row with Browse
+        fw_row = QHBoxLayout()
+        self.firmware_edit = QLineEdit("examples/sensor-firmware/build/sensor.elf")
+        self.browse_btn = QPushButton("Browse...")
+        self.browse_btn.clicked.connect(self._browse)
+        fw_row.addWidget(QLabel("Firmware"))
+        fw_row.addWidget(self.firmware_edit)
+        fw_row.addWidget(self.browse_btn)
+        lay.addLayout(fw_row)
         self.platform = QComboBox()
         self.platform.addItems(["STM32F4 Discovery", "nRF52840 DK", "HiFive1 RISC-V"])
         lay.addWidget(self.platform)
@@ -31,3 +41,18 @@ class CampaignEditor(QWidget):
         btns.addWidget(self.run_btn); btns.addWidget(self.save_btn)
         lay.addLayout(btns)
         lay.addStretch()
+
+    def _browse(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select Firmware ELF", str(Path.cwd()), "ELF Files (*.elf *.bin);;All Files (*)")
+        if path:
+            self.firmware_edit.setText(path)
+            # Validate ELF magic via config
+            try:
+                p = Path(path)
+                magic = p.read_bytes()[:4]
+                if magic == b"\x7fELF":
+                    self.firmware_edit.setToolTip(f"Valid ELF — {p.stat().st_size} bytes")
+                else:
+                    self.firmware_edit.setToolTip("Warning: not ELF magic")
+            except Exception:
+                pass
