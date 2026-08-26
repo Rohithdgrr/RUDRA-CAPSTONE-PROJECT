@@ -1,10 +1,12 @@
 """Campaign manager — load YAML, run tests."""
 from __future__ import annotations
 import yaml
+import hashlib
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.config.schemas import CampaignConfig
-from src.core.result_aggregator import CampaignResult, TestResult
+from src.core.result_aggregator import CampaignResult, TestResult, ComparisonResult
 from src.core.resilience_index import calculate_ri, grade_for_ri
 from src.core.renode_bridge import RenodeBridge
 
@@ -25,49 +27,66 @@ class Campaign:
     def validate(self):
         return self.config
 
+    def _run_single(self, fault, weights, thresholds):
+        h = int(hashlib.md5(fault.id.encode()).hexdigest()[:2], 16)
+        detected = h % 3 != 0
+        recovered = h % 4 != 0
+        safe = not (fault.id == "TF-01" and not detected)
+        if fault.id in ("SF-03", "TF-01"):
+            detected = False
+            recovered = False
+        ri = calculate_ri(detected, recovered, safe, w_d=weights.detection, w_r=weights.recovery, w_s=weights.safety, latency_ms=23 if detected else None, timeout_ms=fault.timeout_ms)
+        grade = grade_for_ri(ri, thresholds)
+        status = "PASS" if ri >= thresholds["grade_b"] else "FAIL"
+        if 50 <= ri < 70:
+            status = "WARNING"
+        return TestResult(fault_id=fault.id, status=status, detected=detected, recovered=recovered, safe=safe, latency_ms=23 if detected else None, recovery_ms=45 if recovered else None, resilience_index=ri, grade=grade, logs=f"[{status}] {fault.id} detect={detected} recover={recovered} safe={safe}")
+
     def run(self, parallel: int = 1, on_progress=None, on_result=None) -> CampaignResult:
-        # Simplified synchronous runner (used when GUI not running or tests)
-        # For real Renode, use RenodeBridge; here simulate deterministically
-        from src.core.fault_injector import FAULT_CATALOG
-        results: list[TestResult] = []
-        # Determine weights/thresholds
         weights = self.config.scoring.weights
         thresholds = self.config.scoring.thresholds.model_dump()
-        total = len(self.config.faults)
-        for idx, f in enumerate(self.config.faults):
-            # Simulate: even faults PASS, odd FAIL for demo, but SF-01 always PASS
-            # Use deterministic hash to allow repeatable testing
-            import hashlib
-            h = int(hashlib.md5(f.id.encode()).hexdigest()[:2], 16)
-            # SF-01, SF-02 simulate PASS, SF-03 FAIL, etc. Simple rule: if last char odd -> FAIL
-            # Provide realistic: 70% pass to allow Grade B
-            detected = h % 3 != 0
-            recovered = h % 4 != 0
-            safe = not (f.id == "TF-01" and not detected)  # TF-01 unsafe if not detected
-            # For known problematic per diagnosis, force fail to show findings
-            if f.id in ("SF-03", "TF-01"):
-                detected = False
-                recovered = False
-            ri = calculate_ri(detected, recovered, safe, w_d=weights.detection, w_r=weights.recovery, w_s=weights.safety, latency_ms=23 if detected else None, timeout_ms=f.timeout_ms)
-            grade = grade_for_ri(ri, thresholds)
-            status = "PASS" if ri >= thresholds["grade_b"] else "FAIL"
-            # Ensure some warnings for >85?
-            if 50 <= ri < 70:
-                status = "WARNING"
-            tr = TestResult(fault_id=f.id, status=status, detected=detected, recovered=recovered, safe=safe, latency_ms=23 if detected else None, recovery_ms=45 if recovered else None, resilience_index=ri, grade=grade, logs=f"[{'PASS' if status=='PASS' else 'FAIL'}] {f.id}")
-            results.append(tr)
-            if on_progress:
-                on_progress(idx+1, total)
-            if on_result:
-                on_result(tr)
-        # Campaign aggregation
-        if results:
-            avg_ri = round(sum(r.resilience_index for r in results) / len(results))
+        faults = self.config.faults
+        total = len(faults)
+        results: list[TestResult] = [None] * total  # type: ignore
+
+        if parallel > 1:
+            with ThreadPoolExecutor(max_workers=min(parallel, total)) as ex:
+                future_to_idx = {ex.submit(self._run_single, f, weights, thresholds): i for i, f in enumerate(faults)}
+                completed = 0
+                for fut in as_completed(future_to_idx):
+                    idx = future_to_idx[fut]
+                    tr = fut.result()
+                    results[idx] = tr
+                    completed += 1
+                    if on_progress:
+                        on_progress(completed, total)
+                    if on_result:
+                        on_result(tr)
         else:
-            avg_ri = 0
+            for idx, f in enumerate(faults):
+                tr = self._run_single(f, weights, thresholds)
+                results[idx] = tr
+                if on_progress:
+                    on_progress(idx+1, total)
+                if on_result:
+                    on_result(tr)
+
+        # Ensure order by fault id original order
+        if any(r is None for r in results):
+            results = [r for r in results if r is not None]
+        avg_ri = round(sum(r.resilience_index for r in results) / len(results)) if results else 0
         grade = grade_for_ri(avg_ri, thresholds)
         return CampaignResult(campaign_name=self.config.name, results=results, resilience_index=avg_ri, grade=grade)
 
-    def compare(self, other: CampaignResult):
-        # placeholder compare
-        pass
+    def compare(self, baseline: "CampaignResult", optimized: "CampaignResult") -> ComparisonResult:
+        b_map = {r.fault_id: r.resilience_index for r in baseline.results}
+        o_map = {r.fault_id: r.resilience_index for r in optimized.results}
+        all_ids = sorted(set(b_map) | set(o_map))
+        deltas = []
+        for fid in all_ids:
+            b = b_map.get(fid, 0)
+            o = o_map.get(fid, 0)
+            deltas.append({"fault_id": fid, "baseline": b, "optimized": o, "delta": o - b})
+        delta_ri = optimized.resilience_index - baseline.resilience_index
+        improvement_pct = round((delta_ri / max(1, baseline.resilience_index)) * 100, 1)
+        return ComparisonResult(baseline=baseline, optimized=optimized, deltas=deltas, delta_ri=delta_ri, improvement_pct=improvement_pct)

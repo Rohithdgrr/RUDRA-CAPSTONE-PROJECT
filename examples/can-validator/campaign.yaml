@@ -1,0 +1,14 @@
+name: "CAN Bus Resilience"
+firmware: "examples/can-validator/build/can.elf"
+platform: "resources/platforms/stm32f4_discovery.repl"
+duration: 45
+parallel: 2
+faults:
+  - id: CF-01
+    params: { loss_rate: 0.3, bus: "can0" }
+    expected: "retransmit_ok"
+    timeout_ms: 1000
+  - id: CF-03
+    params: { rate_hz: 5000, bus: "can0" }
+    expected: "flood_detected"
+    timeout_ms: 2000

@@ -29,11 +29,35 @@ def campaign(config: str = typer.Option(..., "--config"), parallel: int = typer.
 @app.command()
 def report(results: str = typer.Option(..., "--results"), format: str = typer.Option("html", "--format"), output: str = typer.Option("report.html", "--output")):
     data = json.loads(Path(results).read_text(encoding="utf-8"))
-    typer.echo(f"Report stub: {data.get('campaign')} {format} -> {output}")
+    from src.core.result_aggregator import CampaignResult, TestResult
+    cr = CampaignResult(campaign_name=data["campaign"], resilience_index=data["resilience_index"], grade=data["grade"], results=[TestResult(**{k: v for k,v in x.items() if k in TestResult.__dataclass_fields__}) for x in data["results"]])
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    if format == "html":
+        cr.to_html(output)
+    elif format == "pdf":
+        cr.to_pdf(output)
+    elif format == "json":
+        cr.to_json(output)
+    elif format == "junit":
+        cr.to_junit(output)
+    else:
+        cr.to_html(output)
+    typer.echo(f"Report {data.get('campaign')} {format} -> {output} RI {cr.resilience_index} Grade {cr.grade}")
 
 @app.command()
 def compare(baseline: str = typer.Option(...), optimized: str = typer.Option(...), output: str = typer.Option("comparison.html")):
-    typer.echo(f"Compare {baseline} vs {optimized} -> {output}")
+    import json
+    b = json.loads(Path(baseline).read_text(encoding="utf-8"))
+    o = json.loads(Path(optimized).read_text(encoding="utf-8"))
+    from src.core.result_aggregator import CampaignResult, TestResult
+    def to_cr(d): return CampaignResult(campaign_name=d["campaign"], resilience_index=d["resilience_index"], grade=d["grade"], results=[TestResult(**{k: v for k,v in x.items() if k in TestResult.__dataclass_fields__}) for x in d["results"]])
+    cr_b, cr_o = to_cr(b), to_cr(o)
+    cmp = cr_b.compare(cr_o)
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    cmp.to_html(output)
+    typer.echo(f"Comparison delta {cmp.delta_ri:+d} (+{cmp.improvement_pct}%) -> {output}")
+    for d in cmp.deltas:
+        typer.echo(f"  {d['fault_id']}: {d['baseline']} -> {d['optimized']} ({d['delta']:+d})")
 
 @app.command()
 def faults():

@@ -46,6 +46,7 @@ class CampaignResult:
             "grade": self.grade,
             "pass_count": self.pass_count,
             "fail_count": self.fail_count,
+            "warning_count": self.warning_count,
             "total": self.total_count,
             "results": [asdict(r) for r in self.results],
         }
@@ -65,3 +66,35 @@ class CampaignResult:
     def to_junit(self, path):
         from src.core.report_generator import generate_junit
         generate_junit(self, path)
+
+    def compare(self, other: "CampaignResult"):
+        from src.core.campaign import Campaign
+        # Dummy campaign needed for compare helper; use empty config
+        dummy = Campaign.__new__(Campaign)
+        return dummy.compare(self, other)
+
+
+@dataclass
+class ComparisonResult:
+    baseline: CampaignResult
+    optimized: CampaignResult
+    deltas: list[dict]
+    delta_ri: int
+    improvement_pct: float
+
+    def to_dict(self):
+        return {
+            "baseline": self.baseline.to_dict(),
+            "optimized": self.optimized.to_dict(),
+            "deltas": self.deltas,
+            "delta_ri": self.delta_ri,
+            "improvement_pct": self.improvement_pct,
+        }
+
+    def to_html(self, path):
+        html = f"<html><body><h1>Comparison</h1><p>Baseline {self.baseline.resilience_index} → Optimized {self.optimized.resilience_index} Δ {self.delta_ri} (+{self.improvement_pct}%)</p><table border=1><tr><th>Fault</th><th>Baseline</th><th>Optimized</th><th>Delta</th></tr>"
+        for d in self.deltas:
+            html += f"<tr><td>{d['fault_id']}</td><td>{d['baseline']}</td><td>{d['optimized']}</td><td>{d['delta']:+d}</td></tr>"
+        html += "</table></body></html>"
+        from pathlib import Path
+        Path(path).write_text(html, encoding="utf-8")

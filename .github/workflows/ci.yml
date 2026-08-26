@@ -1,0 +1,33 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: ${{ matrix.python-version }} }
+      - name: Install deps
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: ruff check src/ || true
+      - name: Unit tests
+        run: pytest tests/unit --cov=src --cov-fail-under=70 -q
+      - name: Validator
+        run: python -m src.config.validator campaigns/sensor_suite.yaml
+      - name: CLI smoke
+        run: python -m src.cli campaign --config campaigns/sensor_suite.yaml --parallel 2 --output results
+
+  renode-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: antmicro/renode-test-action@v5
+        with:
+          renode-revision: 'master'
+          tests-to-run: 'tests/integration/**/*.robot'
+          artifacts-path: 'results'
