@@ -1,6 +1,6 @@
 """RI gauge with color grading and value cap."""
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSettings, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
@@ -47,8 +47,14 @@ class RIGauge(QWidget):
         r = size / 2
         pen_w = 10
 
-        # Background circle
-        p.setPen(QPen(QColor("#27273A"), pen_w))
+        # Background track — theme aware
+        try:
+            from PyQt6.QtCore import QSettings
+            is_light = QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+        except Exception:
+            is_light = False
+        track = "#E5E7EB" if is_light else "#27273A"
+        p.setPen(QPen(QColor(track), pen_w))
         p.drawArc(int(cx - r), int(cy - r), int(size), int(size), 0, 360 * 16)
 
         # Value arc
@@ -71,8 +77,12 @@ class RIGauge(QWidget):
             str(self._value),
         )
 
-        # "/100"
-        p.setPen(QPen(QColor("#71717A")))
+        # "/100" — adaptive
+        try:
+            is_light2 = QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+        except Exception:
+            is_light2 = is_light
+        p.setPen(QPen(QColor("#6B7280" if is_light2 else "#71717A")))
         p.setFont(QFont("Segoe UI", 10))
         p.drawText(
             int(cx - r), int(cy + 8), int(size), int(size / 2), Qt.AlignmentFlag.AlignCenter, "/100"

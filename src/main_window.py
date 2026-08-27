@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 
 from src.core.campaign import Campaign
 from src.core.test_runner import TestRunner
+from src.gui.theme_manager import ThemeManager
 from src.gui.utils.icons import AppIcons
 from src.gui.widgets.campaign_editor import CampaignEditor
 from src.gui.widgets.charts.category_radar import CategoryRadar
@@ -28,10 +29,12 @@ from src.gui.widgets.charts.ri_gauge import RIGauge
 from src.gui.widgets.comparison_view import ComparisonView
 from src.gui.widgets.console_output import ConsoleOutput
 from src.gui.widgets.dialogs.settings_dialog import SettingsDialog
+from src.gui.widgets.metric_card import MetricCard
 from src.gui.widgets.property_panel import PropertyPanel
 from src.gui.widgets.report_viewer import ReportViewer
 from src.gui.widgets.sidebar import Sidebar
 from src.gui.widgets.test_runner_view import TestRunnerView
+from src.gui.widgets.toast import show_toast
 
 DARK_THEME = Path(__file__).parent / "gui" / "styles" / "dark_theme.qss"
 LIGHT_THEME = Path(__file__).parent / "gui" / "styles" / "light_theme.qss"
@@ -214,10 +217,14 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("RenodeResilience v1.5")
-        self.setMinimumSize(1400, 900)
-        self.resize(1600, 1000)
+        self.setMinimumSize(1200, 800)
+        self.resize(1400, 900)
         self.settings = QSettings("RenodeResilience", "RUDRA")
-        self._current_theme = self.settings.value("theme", "dark", type=str)
+        self._current_theme = self.settings.value("theme", "light", type=str)
+        if self._current_theme not in ("light", "dark"):
+            self._current_theme = "light"
+        # Theme manager (hot-swap)
+        self.theme_manager = None  # init after app exists, wired in _init_theme
         # Renode settings (from SettingsDialog) — persisted via QSettings
         self._use_renode = self.settings.value("renode/use_renode", False, type=bool)
         self._renode_bin = self.settings.value("renode/bin", "renode", type=str)
@@ -352,8 +359,14 @@ class MainWindow(QMainWindow):
         help_menu = menu.addMenu("Help")
         help_menu.addAction("About", self._show_about)
 
-        # Apply persisted theme
-        self._set_theme(self._current_theme)
+        # Theme manager (after menu actions exist)
+        try:
+            from PyQt6.QtWidgets import QApplication
+            self.theme_manager = ThemeManager(QApplication.instance(), self)
+            self.theme_manager.themeChanged.connect(self._on_theme_changed)
+            self.theme_manager.set_theme(self._current_theme)
+        except Exception:
+            self._set_theme(self._current_theme)
 
         # Wire property panel to fault selection
         try:
@@ -365,14 +378,28 @@ class MainWindow(QMainWindow):
     def _set_theme(self, theme: str):
         self._current_theme = theme
         self.settings.setValue("theme", theme)
-        qss = DARK_THEME if theme == "dark" else LIGHT_THEME
-        if qss.exists():
+        # Prefer ThemeManager if available
+        if hasattr(self, "theme_manager") and self.theme_manager:
             try:
-                self.setStyleSheet(qss.read_text(encoding="utf-8"))
+                self.theme_manager.set_theme(theme)
             except Exception:
                 pass
+        else:
+            qss = DARK_THEME if theme == "dark" else LIGHT_THEME
+            if qss.exists():
+                try:
+                    self.setStyleSheet(qss.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
         self._dark_action.setChecked(theme == "dark")
         self._light_action.setChecked(theme == "light")
+
+    def _on_theme_changed(self, theme: str):
+        # Hook for toast + chart recolor if needed
+        try:
+            show_toast(self, f"Theme: {theme.capitalize()}", "info", 1500)
+        except Exception:
+            pass
 
     def _navigate(self, nav_id: str):
         mapping = {

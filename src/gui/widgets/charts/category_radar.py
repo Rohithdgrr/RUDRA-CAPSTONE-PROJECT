@@ -1,6 +1,6 @@
 """Category radar — horizontal bar chart showing scores per category."""
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSettings, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
@@ -43,8 +43,13 @@ class CategoryRadar(QWidget):
             score = self._scores[cat]
             max_bar_w = w - margin_l - margin_r
 
-            # Label
-            p.setPen(QPen(QColor("#A1A1AA")))
+            # Label — theme aware
+            try:
+                is_light = QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+            except Exception:
+                is_light = False
+            label_col = "#6B7280" if is_light else "#A1A1AA"
+            p.setPen(QPen(QColor(label_col)))
             p.drawText(
                 0,
                 y,
@@ -54,8 +59,9 @@ class CategoryRadar(QWidget):
                 cat,
             )
 
-            # Background bar
-            p.setBrush(QColor("#1C1C32"))
+            # Background bar — light #E5E7EB / dark #1C1C32
+            bg = "#E5E7EB" if is_light else "#1C1C32"
+            p.setBrush(QColor(bg))
             p.setPen(Qt.PenStyle.NoPen)
             p.drawRoundedRect(margin_l, y, max_bar_w, bar_h, 4, 4)
 
@@ -66,8 +72,9 @@ class CategoryRadar(QWidget):
                 p.setBrush(color)
                 p.drawRoundedRect(margin_l, y, fill_w, bar_h, 4, 4)
 
-            # Score text
-            p.setPen(QPen(QColor("#F4F4F5")))
+            # Score text — adaptive
+            txt_col = "#111827" if is_light else "#F4F4F5"
+            p.setPen(QPen(QColor(txt_col)))
             text_x = margin_l + fill_w + 8 if fill_w < max_bar_w - 40 else margin_l + fill_w - 30
             p.drawText(text_x, y, 40, bar_h, Qt.AlignmentFlag.AlignVCenter, f"{score}")
 

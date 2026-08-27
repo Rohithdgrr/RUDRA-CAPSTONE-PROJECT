@@ -1,6 +1,6 @@
 """Pass/Fail pie chart widget."""
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSettings, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
@@ -28,13 +28,20 @@ class PassFailPie(QWidget):
         cy = h / 2
         r = size / 2
 
+        try:
+            is_light = QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+        except Exception:
+            is_light = False
+        track = "#E5E7EB" if is_light else "#27273A"
+        fg_secondary = "#6B7280" if is_light else "#A1A1AA"
+        fg_primary = "#111827" if is_light else "#F4F4F5"
         total = self._passed + self._failed
         if total == 0:
             # Empty ring
-            p.setPen(QPen(QColor("#27273A"), 20))
+            p.setPen(QPen(QColor(track), 20))
             p.drawArc(int(cx - r), int(cy - r), int(size), int(size), 0, 360 * 16)
 
-            p.setPen(QPen(QColor("#52525B")))
+            p.setPen(QPen(QColor(fg_secondary)))
             font = QFont("Segoe UI", 11)
             p.setFont(font)
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No data")
@@ -57,7 +64,7 @@ class PassFailPie(QWidget):
         p.drawArc(int(cx - r), int(cy - r), int(size), int(size), fail_angle, pass_angle)
 
         # Center text
-        p.setPen(QPen(QColor("#F4F4F5")))
+        p.setPen(QPen(QColor(fg_primary)))
         font = QFont("Segoe UI", 18, QFont.Weight.Bold)
         p.setFont(font)
         pct = int(self._passed / total * 100)
@@ -70,7 +77,7 @@ class PassFailPie(QWidget):
             f"{pct}%",
         )
 
-        p.setPen(QPen(QColor("#A1A1AA")))
+        p.setPen(QPen(QColor(fg_secondary)))
         font2 = QFont("Segoe UI", 10)
         p.setFont(font2)
         p.drawText(
