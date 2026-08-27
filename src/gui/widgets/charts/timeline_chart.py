@@ -1,9 +1,12 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
 try:
     import pyqtgraph as pg
+
     HAS_PG = True
 except ImportError:
     HAS_PG = False
+
 
 class TimelineChart(QWidget):
     def __init__(self):

@@ -21,15 +21,18 @@ User → GUI (PyQt6 QMainWindow 1400×900) → Core Engine → Renode Bridge (QP
 ### Presentation Layer — `src/gui/` (PyQt6)
 | Widget | File | Role |
 |--------|------|------|
-| Main Window | `src/main_window.py` | `QMainWindow`, `QStackedWidget`, 3 `QDockWidget` (Sidebar/Properties/Console), `QStatusBar` |
-| Sidebar | `src/gui/widgets/sidebar.py` | `QTreeView` nav: Campaigns, Firmware, Platforms, Settings |
-| Campaign Editor | `src/gui/widgets/campaign_editor.py` | Fault checkboxes, severity/duration table, expected behavior rules |
-| Test Runner | `src/gui/widgets/test_runner_view.py` | Progress bar, ETA, live `QTableView`, PyQtGraph charts |
-| Report Viewer | `src/gui/widgets/report_viewer.py` | `QWebEngineView` (HTML), Qt PDF, export buttons |
-| ComparisonView | `src/gui/widgets/comparison_view.py` | Baseline vs Optimized delta table |
-| Console | `src/gui/widgets/console_output.py` | `QTextEdit` monospace, color-coded `PASS/FAIL/WARN/INFO` |
-| Charts | `src/gui/widgets/charts/*` | `ri_gauge.py`, `fault_heatmap.py`, `timeline_chart.py`, `category_radar.py`, `pass_fail_pie.py` |
-| Styles | `src/gui/styles/dark_theme.qss` | Dark-first QSS |
+| Main Window | `src/main_window.py` | `QMainWindow` with `WelcomeScreen`, `QStackedWidget` (5 screens), 3 `QDockWidget`, theme switching |
+| Welcome Screen | `src/main_window.py:WelcomeScreen` | Hero branding, quick-action cards with icons, recent campaigns |
+| Sidebar | `src/gui/widgets/sidebar.py` | Vector icons, section headers, hover/active states, 220px fixed |
+| Campaign Editor | `src/gui/widgets/campaign_editor.py` | 27-fault checkbox table with severity colors, form layout, ELF validation |
+| Test Runner | `src/gui/widgets/test_runner_view.py` | Summary cards, gradient progress bar, 8-col table with colored status |
+| Report Viewer | `src/gui/widgets/report_viewer.py` | Summary banner, HTML report, findings panel with red-bordered cards |
+| ComparisonView | `src/gui/widgets/comparison_view.py` | Delta cards, 5-col table with improvement/regression coloring |
+| Console | `src/gui/widgets/console_output.py` | `QTextEdit` monospace, timestamps, level icons, 10k line cap |
+| Property Panel | `src/gui/widgets/property_panel.py` | Fault params, RI weights, platform info |
+| Charts | `src/gui/widgets/charts/*` | RI gauge (donut arc), pass/fail pie (donut), category radar (bars), timeline, heatmap |
+| Icons | `src/gui/utils/icons.py` | 20 programmatic vector icons via `QPainter`, no external assets |
+| Styles | `src/gui/styles/` | `dark_theme.qss` (200+ rules), `light_theme.qss` (150+ rules) |
 
 Layout: Sidebar 250px | Central StackedWidget | Properties 250px | Bottom Console 200px | StatusBar `Renode ● Running | Tests 12/27 | RI 73/100 | Grade B` — see `desktop-application.md:30-62`.
 
@@ -49,14 +52,14 @@ Layout: Sidebar 250px | Central StackedWidget | Properties 250px | Bottom Consol
 ### Core Engine — `src/core/` (Python 3.11+)
 | Module | File | Responsibility |
 |--------|------|----------------|
-| Renode Bridge | `src/core/renode_bridge.py` | `start(platform,fw)→bool`, `inject_fault(id,params)→bool`, `read_peripheral(path)→value`, `stop()` via `subprocess.Popen --disable-xwt --port 1234` (`renode/README.md:161`), optional `pyrenode3` typed `RPath` fallback (`pyrenode3/src/pyrenode3/__init__.py:34`, `adr/002`) |
-| Fault Injector | `src/core/fault_injector.py` | 27 IDs → Renode monitor commands `_build_fault_command()` |
-| Campaign Manager | `src/core/campaign.py` | `Campaign.from_yaml()`, load/save/validate Pydantic YAML |
-| Test Runner | `src/core/test_runner.py` | `QThread`/`QThreadPool`, sequential + parallel (4 workers), signals `progress/result/log` |
-| Result Aggregator | `src/core/result_aggregator.py` | Pass/Fail/Warning, detection latency, recovery time, safety state |
-| Resilience Index | `src/core/resilience_index.py` | `RI=(D×0.4)+(Rec×0.3)+(S×0.3)`, Grade A-F |
-| Diagnosis Engine | `src/core/diagnosis_engine.py` | Rule-based classifier + recommendations + ISO mapping |
-| Report Generator | `src/core/report_generator.py` | Jinja2+WeasyPrint HTML/PDF/JSON/JUnit |
+| Renode Bridge | `src/core/renode_bridge.py` | `start(platform,fw)→bool`, `inject_fault(id,params)→bool`, `read_peripheral(path)→value`, `stop()` via `subprocess.Popen --disable-xwt --port 1234`, path traversal prevention, resource cleanup |
+| Fault Injector | `src/core/fault_injector.py` | 27 IDs → Renode monitor commands, formatted params (not dict repr) |
+| Campaign Manager | `src/core/campaign.py` | `Campaign.from_yaml()`, Pydantic validation, parallel execution with exception handling, configurable WARNING thresholds |
+| Test Runner | `src/core/test_runner.py` | `QThread` with stop support, signals `progress/result/log/finished_campaign` |
+| Result Aggregator | `src/core/result_aggregator.py` | `TestResult`, `CampaignResult`, `ComparisonResult`, standalone `compare_results()` |
+| Resilience Index | `src/core/resilience_index.py` | `RI=(D×0.4)+(Rec×0.3)+(S×0.3)`, division-by-zero guard, Grade A-F |
+| Diagnosis Engine | `src/core/diagnosis_engine.py` | 5 rule-based classifiers + recommendations + ISO 26262 mapping |
+| Report Generator | `src/core/report_generator.py` | HTML (inline CSS), PDF (WeasyPrint), JUnit XML |
 
 See `desktop-application.md:444-537` for critical code sketches.
 

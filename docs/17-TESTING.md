@@ -11,28 +11,24 @@
 | GUI | `pytest-qt` + `qtbot` | `src/gui/widgets/*` without display (`xvfb`) |
 | Lint | `ruff`, `mypy` | `pyproject.toml` strict |
 
-## 2. Unit Tests (`tests/unit/`)
+## 2. Unit Tests (`tests/unit/`) — 27 tests
 
-Mock Renode:
-```python
-# tests/unit/test_renode_bridge.py
-from unittest.mock import MagicMock, patch
-from src.core.renode_bridge import RenodeBridge
+| File | Tests | Covers |
+|------|-------|--------|
+| `test_api.py` | 4 | FastAPI endpoints, faults list (27), run single, campaign flow |
+| `test_campaign.py` | 2 | YAML loading, campaign execution |
+| `test_cli.py` | 4 | CLI commands, YAML validator |
+| `test_diagnosis.py` | 3 | Diagnosis rules, SF-01 median filter, TF-01 watchdog |
+| `test_fault_injector.py` | 4 | 27 fault IDs, build commands, bridge injection |
+| `test_renode_bridge.py` | 7 | Start, stop, inject, read, command building |
+| `test_report.py` | 2 | HTML generation, JUnit XML, comparison |
+| `test_resilience.py` | 1 | RI calculation, grade mapping |
 
-@patch("subprocess.Popen")
-def test_start(mock_popen):
-    mock_proc = MagicMock(); mock_popen.return_value = mock_proc
-    b = RenodeBridge()
-    assert b.start(Path("platform.repl"), Path("firmware.elf"))
-    mock_popen.assert_called_with(['renode','--disable-xwt','--port','1234'], ...)
-
-# tests/unit/test_resilience_index.py
-from src.core.resilience_index import calculate_ri
-assert calculate_ri(True,True,True)==100
-assert calculate_ri(False,False,True)==30
+Run:
+```bash
+pytest tests/unit -v --tb=short
+# 27 passed in ~1s
 ```
-
-Others: `test_campaign.py` (Pydantic validation), `test_fault_injector.py` (27 IDs), `test_diagnosis.py` (rules), `test_report.py` (Jinja2).
 
 Run:
 ```bash

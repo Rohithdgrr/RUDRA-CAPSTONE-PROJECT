@@ -1,7 +1,10 @@
 """Entry point — python -m src.main"""
+
 import sys
+
 from src.app import create_app
 from src.main_window import MainWindow
+
 
 def main():
     # headless flag
@@ -12,6 +15,7 @@ def main():
     w = MainWindow()
     w.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

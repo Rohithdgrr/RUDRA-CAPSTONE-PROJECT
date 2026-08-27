@@ -1,86 +1,135 @@
 # 14 — GUI Specification (PyQt6)
 
-> **Framework:** PyQt6 6.6+, Qt Creator 6.6+, PyQtGraph 0.13+ | `desktop-application.md:99-253` mockups
+> **Framework:** PyQt6 6.6+ | **Version:** 1.5 | **Screens:** 5 | **Icons:** 20 vector
 
 ## 1. Window Structure
 
-`src/main_window.py:MainWindow(QMainWindow)` — `1400×900 min`, title `RenodeResilience v1.0`.
+`src/main_window.py:MainWindow(QMainWindow)` — `1400×900 min`, title `RenodeResilience v1.5`.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ QMainWindow                                                     │
-│ ┌────────┬──────────────────────────────────┬────────────────┐ │
-│ │Sidebar │   QStackedWidget (Central)        │ Properties     │ │
-│ │250px   │  Welcome → Designer → Runner →  │ 250px (QDock)  │ │
-│ │QTree   │  Report → Compare               │ Fault Params   │ │
-│ │        │                                  │ Expected Behav │ │
-│ └────────┴──────────────────────────────────┴────────────────┘ │
-│ ┌───────────────────────────────────────────────────────────────┐ │
-│ │ Console QDock Bottom 200px QTextEdit monospace color-coded  │ │
-│ └───────────────────────────────────────────────────────────────┘ │
-│ StatusBar: Renode ● Running | Tests 12/27 | RI 73/100 | Grade B │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ QMainWindow                                                      │
+│ ┌──────┬───────────────────────────────────┬──────────────────┐ │
+│ │Side- │   QStackedWidget (Central)         │ Properties       │ │
+│ │bar   │  0: Welcome (WelcomeScreen)        │ 280px (QDock)    │ │
+│ │220px │  1: CampaignEditor                 │ Fault Params     │ │
+│ │Icons │  2: TestRunnerView                 │ RI Weights       │ │
+│ │      │  3: Report+Charts                  │ Platform Info    │ │
+│ │      │  4: ComparisonView                 │                  │ │
+│ │      │                                    │                  │ │
+│ ├──────┴───────────────────────────────────┴──────────────────┤ │
+│ │ Console QDock Bottom 120px QTextEdit color-coded timestamps │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│ StatusBar: Ready | Renode: idle                                   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-Docks: `QDockWidget` Left `Sidebar`, Right `Properties`, Bottom `Console` — dockable/closable.
+Docks: `QDockWidget` Left `Sidebar` 220px, Right `Properties` 280px, Bottom `Console` 120px.
 
 ## 2. Screen Inventory
 
-### Screen 1: Welcome / Project Browser (`WelcomeScreen`)
-- Recent Projects: cards `▶ sensor_suite RI 73 2h ago`, `motor_ctrl RI45`, `can_validator RI91`.
-- Templates panel: `STM32 Sensor, Motor Controller, CAN Bus, Power Management, Communication Stack` with radio.
-- Actions: `[New] [Open Project] [Import Campaign]`.
-- File: `src/gui/widgets/sidebar.py` + `resources/ui/main_window.ui`.
+### Screen 0: Welcome (`WelcomeScreen`)
+- **Hero:** "RUDRA" brand (blue, 36pt Black), tagline, description.
+- **Quick Actions:** 4 cards with vector icons — New Campaign (+), Run Demo (▶), Open Report (📊), Compare Runs (↔).
+- **Recent Campaigns:** 3 cards with campaign icons, fault count, RI/Grade, date.
+- **Footer:** Version, capabilities.
 
-### Screen 2: Campaign Designer (`CampaignEditor`)
-- Fields: Name `QLineEdit`, Firmware `Browse` + label `sensor.elf (STM32F407,128KB)`, Platform `QComboBox`, Duration `QSpinBox 1-3600`, Parallel `QSpinBox 1-8`.
-- Fault Selection: Checkboxes by category (Sensor/Timing/Comm/Memory/Power/GPIO) → Selected Faults `QTableView` columns `ID Type Severity Duration Target`.
-- Expected Behavior: `QTableView` rows `SF-01 → detect_stuck_sensor() within 5000ms`.
-- Scoring: Sliders `Detection 40 Recovery 30 Safety 30` + Min Grade `QComboBox B(70)`.
-- Actions: `[Run] [Save]` → validates Pydantic, writes `campaign.yaml`.
-- Files: `src/gui/widgets/campaign_editor.py`, `fault_selector.py`, `property_panel.py`.
+### Screen 1: Campaign Designer (`CampaignEditor`)
+- **General Settings:** `QGroupBox` with `QFormLayout` — Campaign name, Firmware Browse (ELF validation), Platform `QComboBox`, Duration `QSpinBox`, Parallel `QSpinBox`.
+- **Fault Selection:** `QGroupBox` with 27-row `QTableWidget` — columns: checkbox, Fault ID, Type, Severity (colored). Select All / Clear buttons.
+- **Actions:** `Run Campaign` (play icon) + `Save` (save icon) buttons.
+- **Files:** `src/gui/widgets/campaign_editor.py`
 
-### Screen 3: Live Test Runner (`TestRunnerView`)
-- Progress: `QProgressBar 12/27 (44%)` + ETA `8 min`.
-- Live Results: `QTableView + PandasModel` columns `ID Fault Status Detect Recover Safety RI` with live update via `TestRunner.result` signal.
-- Charts (PyQtGraph 60fps): Line `RI over time`, Bar `category scores`, Pie `Pass/Fail/Warning`.
-- Console: `QTextEdit` appended via `TestRunner.log` signal: `[INFO] Campaign started | [PASS] SF-01 23ms | [FAIL] TF-01 | [WARN] CF-03`.
-- Controls: `[Stop] [Pause ⏸]` → `RenodeBridge.stop()`.
-- Files: `src/gui/widgets/test_runner_view.py`, `console_output.py`, `charts/*`.
+### Screen 2: Test Runner (`TestRunnerView`)
+- **Summary Cards:** 4 `QFrame` cards — Total (blue), Passed (green), Failed (red), RI (purple).
+- **Progress:** `QProgressBar` with gradient chunk (blue→purple) + ETA label.
+- **Table:** `QTableWidget` 8 columns — #, Fault ID, Status (colored bg), Detection, Recovery, Safety, RI (colored), Duration.
+- **Controls:** Pause (⏸ icon) + Stop (■ icon, red) buttons.
+- **Files:** `src/gui/widgets/test_runner_view.py`
 
-### Screen 4: Report Viewer (`ReportViewer`)
-- Tabs: `HTML` (`QWebEngineView`), `PDF` (Qt PDF), `JSON` (`QTableView`).
-- Summary card: `Campaign RI 69 Grade C Marginal Pass 15 Fail 8 Warning 4`.
-- Critical Findings: `QListView` ⚠/❌ with expandable recommendation (`diagnosis_engine`).
-- Detailed Charts: Radar 6 categories, Heatmap, Timeline latency.
-- Actions: `[Export PDF] [Export JSON] [View in Browser] [Compare]`.
-- Files: `src/gui/widgets/report_viewer.py`, `charts/*`, `resources/templates/*`.
+### Screen 3: Report Viewer (`ReportViewer`)
+- **Charts Row:** `QFrame` with 3 charts — RI Gauge (donut arc), Pass/Fail Pie (donut), Category Radar (horizontal bars).
+- **Export Buttons:** PDF (📄), HTML ({ }), JSON ({ }), JUnit (📊) with icons.
+- **Summary Banner:** RI/100, Grade (colored), Campaign Name, Pass/Fail stats.
+- **HTML Report:** `QTextBrowser` with metrics cards.
+- **Findings Panel:** `QTextBrowser` with red-bordered fault cards + recommendations.
+- **Files:** `src/gui/widgets/report_viewer.py`, `charts/*`
 
-### Screen 5: ComparisonView
-- Two cards `Baseline RI45 D Pass8/27` vs `Optimized RI73 B Pass19/27` + Improvement `+28 (+62%)`.
-- Delta table `Fault | Baseline | Optimized | Delta +75 ✅`.
-- Key Changes list bullet 1-3.
-- File: `src/gui/widgets/comparison_view.py`.
+### Screen 4: Comparison View (`ComparisonView`)
+- **Summary Cards:** 4 cards — Baseline RI (blue), Optimized RI (purple), Delta (green/red), Improvement % (yellow).
+- **Table:** `QTableWidget` 5 columns — Fault ID, Baseline RI, Optimized RI, Delta (colored ±), Status (IMPROVED/REGRESSED/SAME).
+- **Files:** `src/gui/widgets/comparison_view.py`
 
-### Screen 6: Settings (`SettingsDialog`)
-- Renode path, Theme `dark/light`, Default weights, Export paths, API token — Pydantic-backed `src/config/schemas.py`.
+### Settings Dialog (`SettingsDialog`)
+- **Renode:** Executable path, Monitor Port.
+- **Appearance:** Theme (Dark/Light) combo, Font Size combo.
+- **Campaign Defaults:** Auto-save checkbox, Console output checkbox.
+- **Files:** `src/gui/widgets/dialogs/settings_dialog.py`
 
-## 3. Styling
+## 3. Icons (Vector)
 
-- Dark-first QSS `src/gui/styles/dark_theme.qss` + `light_theme.qss` (see `15-STYLE_GUIDE.md`).
-- Icons `resources/icons/app_icon_*.png`, SVG scalable.
-- Color coding: PASS `#4CAF50`, FAIL `#F44336`, WARNING `#FF9800`, INFO `#2196F3`, Grades A `#2ECC71` B `#3498DB` C `#F1C40F` D `#E67E22` F `#E74C3C`.
+20 programmatic vector icons via `src/gui/utils/icons.py` — `QPainter` on `QPixmap`, no external assets:
 
-## 4. Interaction
+| Icon | Used For |
+|------|----------|
+| `home` | Dashboard nav |
+| `campaign` | Campaigns, recent items |
+| `report` | Reports, JUnit export |
+| `compare` | Compare nav |
+| `new` | New Campaign (+) |
+| `open` | Open Campaign (folder) |
+| `save` | Save (floppy) |
+| `recent` | Recent (clock) |
+| `template` | Templates (grid) |
+| `firmware` | Firmware (chip) |
+| `load` | Load ELF (download) |
+| `select` | Select Target (checkmark) |
+| `build` | Build (hammer) |
+| `verify` | Verify (badge) |
+| `platform` | Platforms (monitor) |
+| `settings` | Settings (gear) |
+| `play` | Run (triangle) |
+| `stop` | Stop (square) |
+| `pause` | Pause (bars) |
+| `pdf` | Export PDF (document) |
 
-- Drag-and-drop campaign designer (faults reorder).
-- Shortcuts: `Ctrl+N` New, `Ctrl+O` Open, `Ctrl+S` Save, `Ctrl+R` Run, `Ctrl+E` Export.
-- Tooltips per fault ID (from `06-FAULT_CATALOG.md`).
+## 4. Themes
 
-## 5. Performance
+### Dark Theme (`dark_theme.qss`)
+- Background: `#0F0F1A`, Surface: `#16162A`, Border: `#27273A`
+- Text: `#D4D4D8`, Muted: `#71717A`, Brand: `#3B82F6`
+- 200+ QSS rules covering all widgets
 
-- Lazy widget init (screens created on first access), PyQtGraph GPU, Pandas `QTableView`, log rotation 10k lines — matches `README.md:416-421`.
+### Light Theme (`light_theme.qss`)
+- Background: `#F8FAFC`, Surface: `#FFFFFF`, Border: `#E5E7EB`
+- Text: `#1F2937`, Muted: `#9CA3AF`, Brand: `#3B82F6`
+- 150+ QSS rules
 
-## 6. Packaging
+### Switching
+- **View → Theme → Dark/Light** menu toggle
+- `MainWindow._set_theme()` loads QSS file and applies via `app.setStyleSheet()`
+- `settings_dialog.py` also has theme selector
 
-PyInstaller → `.exe/.dmg/.AppImage` per `19-PACKAGING.md`; Qt Designer `.ui` compiled via `pyuic6`.
+## 5. Charts
+
+| Chart | File | Implementation |
+|-------|------|----------------|
+| RI Gauge | `charts/ri_gauge.py` | Custom `paintEvent` donut arc with grade color |
+| Pass/Fail Pie | `charts/pass_fail_pie.py` | Custom `paintEvent` donut (red/green) |
+| Category Radar | `charts/category_radar.py` | Custom `paintEvent` horizontal bars (6 categories) |
+| Timeline | `charts/timeline_chart.py` | PyQtGraph line plot (optional) |
+| Heatmap | `charts/fault_heatmap.py` | Colored `QTableWidget` |
+
+## 6. Console
+
+`src/gui/widgets/console_output.py` — `QTextEdit` read-only, `QFont("Cascadia Code", 11)`, color-coded timestamps, level icons (ℹ✓✗⚠⚙☢), 10k line cap with auto-trim.
+
+## 7. Performance
+
+- Lazy widget init (screens created at startup, switched via `QStackedWidget`)
+- Log rotation 10k lines via cursor trimming
+- Vector icons cached as `QPixmap` per icon function call
+
+## 8. Packaging
+
+PyInstaller → `.exe/.dmg/.AppImage` per `19-PACKAGING.md`.

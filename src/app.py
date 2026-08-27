@@ -1,7 +1,10 @@
 """QApplication setup."""
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QFont, QFontDatabase
+
 from pathlib import Path
+
+from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6.QtWidgets import QApplication
+
 
 def create_app(argv=None):
     app = QApplication(argv or [])

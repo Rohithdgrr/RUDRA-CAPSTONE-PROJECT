@@ -1,26 +1,59 @@
 """Report generator — HTML/PDF/JSON/JUnit."""
+
+import html as _html
+import xml.etree.ElementTree as ET
 from pathlib import Path
-import json
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-TEMPLATE_DIR = Path(__file__).parent.parent.parent / "resources" / "templates"
-
-def _env():
-    # Simple inline template if file missing
-    return Environment(autoescape=select_autoescape())
 
 def generate_html(result, path):
     path = Path(path)
-    # Critical findings
     findings = ""
+    sev_colors = {"CRITICAL": "#EF4444", "WARNING": "#F59E0B", "INFO": "#10B981"}
+    cat_colors = {
+        "sensor_filter": "#3B82F6",
+        "sensor_calibration": "#06B6D4",
+        "timing": "#8B5CF6",
+        "concurrency": "#EC4899",
+        "communication": "#F97316",
+        "memory": "#EF4444",
+        "power": "#EAB308",
+        "gpio": "#10B981",
+        "generic": "#6B7280",
+        "none": "#6B7280",
+    }
     for f in result.failures:
         d = f.diagnose()
-        rec = "<br>".join(d.recommendations)
-        findings += f"<div class='finding'><b>{f.fault_id}:</b> {d.root_cause} <span class='sev {d.severity}'>{d.severity}</span><div class='rec'>→ {rec}</div></div>"
+        rec_html = "".join(f"<li>{_html.escape(r)}</li>" for r in d.recommendations) or "<li>No recommendation</li>"
+        iso = f"<span class='iso'>{_html.escape(d.iso_mapping)}</span>" if d.iso_mapping else ""
+        mode = f"<span class='mode'>{_html.escape(d.failure_mode)}</span>" if d.failure_mode else ""
+        latency = f"{d.latency_ms} ms" if d.latency_ms is not None else "-"
+        sev_bg = sev_colors.get(d.severity, "#6B7280")
+        cat_bg = cat_colors.get(d.category, "#6B7280")
+        findings += (
+            f"<div class='finding'>"
+            f"<div class='finding-head'>"
+            f"<b>{_html.escape(f.fault_id)}</b> <span class='cat' style='background:{cat_bg}'>{_html.escape(d.category)}</span> "
+            f"<span class='sev' style='background:{sev_bg}'>{_html.escape(d.severity)}</span> {mode} {iso}"
+            f"<span style='float:right;color:#9AA0A6'>latency {latency} · safe={f.safe} · RI {f.resilience_index} {f.grade}</span>"
+            f"</div>"
+            f"<div class='cause'>{_html.escape(d.root_cause)}</div>"
+            f"<ol class='rec'>{rec_html}</ol>"
+            f"</div>"
+        )
     if not findings:
-        findings = "<p>No critical findings — all faults handled.</p>"
-    rows = "".join(f"<tr><td>{r.fault_id}</td><td><span class='{r.status}'>{r.status}</span></td><td>{r.latency_ms or '-'}ms</td><td>{r.recovery_ms or '-'}ms</td><td>{r.safe}</td><td>{r.resilience_index}</td><td>{r.grade}</td></tr>" for r in result.results)
-    html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><title>{result.campaign_name}</title>
+        findings = "<p class='no-findings'>✓ No critical findings — all faults handled.</p>"
+
+    rows = "".join(
+        f"<tr><td>{r.fault_id}</td><td><span class='{r.status}'>{r.status}</span></td>"
+        f"<td>{r.latency_ms if r.latency_ms is not None else '-'} ms</td>"
+        f"<td>{r.recovery_ms if r.recovery_ms is not None else '-'} ms</td>"
+        f"<td>{'✓' if r.safe else '✗'}</td><td>{r.resilience_index}</td><td><span class='grade grade-{r.grade}'>{r.grade}</span></td></tr>"
+        for r in result.results
+    )
+
+    _safe_name = _html.escape(result.campaign_name)
+    html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>{_safe_name}</title>
 <style>
 body{{font-family:'Segoe UI',Arial,sans-serif;background:#1E1E2F;color:#E0E0E0;padding:24px;max-width:1100px;margin:auto}}
 .card{{background:#2A2A3C;padding:20px;border-radius:12px;display:flex;gap:24px;align-items:center}}
@@ -30,33 +63,79 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#1E1E2F;color:#E0E0E0;p
 table{{width:100%;border-collapse:collapse;margin-top:16px;background:#2A2A3C}}
 th,td{{padding:8px;text-align:left;border-bottom:1px solid #3A3A4C}}
 .finding{{background:#2A2A3C;padding:12px;border-radius:8px;margin:8px 0;border-left:4px solid #F44336}}
-.sev.CRITICAL{{color:#F44336}}.sev.WARNING{{color:#FF9800}}
-.rec{{color:#9AA0A6;margin-top:4px;font-family:Consolas,monospace}}
+.finding-head{{font-size:13px;margin-bottom:6px}}
+.cause{{font-size:14px;color:#F4F4F5;margin:6px 0;font-weight:600}}
+.cat,.sev,.mode,.iso{{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;color:#fff;margin-right:4px}}
+.mode{{background:#27273A;color:#A1A1AA}}
+.iso{{background:#27273A;color:#60A5FA;font-family:Consolas,monospace}}
+.rec{{color:#9AA0A6;margin-top:6px;font-family:Consolas,monospace;font-size:12px;line-height:1.5}}
+.rec li{{margin:3px 0}}
+.no-findings{{color:#10B981;background:#0F2A1A;padding:16px;border-radius:8px;text-align:center}}
 </style></head>
-<body><h1>RenodeResilience Report — {result.campaign_name}</h1>
-<div class="card"><div class="gauge grade-{result.grade}">{result.resilience_index}</div><div><h2 style="margin:0">Grade {result.grade}</h2><p>Pass {result.pass_count} / Fail {result.fail_count} / Warn {result.warning_count} / Total {result.total_count}</p><p>Formula RI=(D×0.4)+(Rec×0.3)+(S×0.3)</p></div></div>
+<body>
+<h1>RenodeResilience Report — {_safe_name}</h1>
+<div class="card"><div class="gauge grade-{result.grade}">{result.resilience_index}</div>
+<div><h2 style="margin:0">Grade {result.grade}</h2>
+<p>Pass {result.pass_count} / Fail {result.fail_count} / Warn {result.warning_count} / Total {result.total_count}</p>
+<p>Formula RI=(D&times;0.4)+(Rec&times;0.3)+(S&times;0.3)</p></div></div>
 <h2>Critical Findings</h2>{findings}
-<h2>Evidence Table</h2><table><tr><th>ID</th><th>Status</th><th>Detect</th><th>Recover</th><th>Safe</th><th>RI</th><th>Grade</th></tr>{rows}</table>
-<p style="color:#9AA0A6;margin-top:24px">Generated by RenodeResilience v1.0 — {result.campaign_name}</p>
+<h2>Evidence Table</h2>
+<table><tr><th>ID</th><th>Status</th><th>Detect</th><th>Recover</th><th>Safe</th><th>RI</th><th>Grade</th></tr>{rows}</table>
+<p style="color:#9AA0A6;margin-top:24px">Generated by RenodeResilience v1.5 — {_safe_name}</p>
 </body></html>"""
     path.write_text(html, encoding="utf-8")
 
+
 def generate_pdf(result, path):
-    # Try HTML -> PDF via WeasyPrint, fallback to HTML renamed
+    path = Path(path)
     try:
         from weasyprint import HTML
-        html_path = Path(path).with_suffix(".html")
+
+        html_path = path.with_suffix(".html")
         generate_html(result, html_path)
         HTML(filename=str(html_path)).write_pdf(str(path))
+        html_path.unlink(missing_ok=True)
+    except ImportError:
+        generate_html(result, path.with_suffix(".html"))
     except Exception:
-        generate_html(result, Path(path).with_suffix(".html"))
+        generate_html(result, path.with_suffix(".html"))
+
 
 def generate_junit(result, path):
-    import xml.etree.ElementTree as ET
-    suite = ET.Element("testsuite", name=result.campaign_name, tests=str(result.total_count), failures=str(result.fail_count))
+    suite = ET.Element(
+        "testsuite",
+        name=result.campaign_name,
+        tests=str(result.total_count),
+        failures=str(result.fail_count),
+    )
     for r in result.results:
-        tc = ET.SubElement(suite, "testcase", classname="fault", name=r.fault_id, time=str((r.latency_ms or 0)/1000))
+        tc = ET.SubElement(
+            suite,
+            "testcase",
+            classname="fault",
+            name=r.fault_id,
+            time=str((r.latency_ms or 0) / 1000),
+        )
+        # attach diagnosis as properties for rich CI display
+        try:
+            d = r.diagnose()
+            props = ET.SubElement(tc, "properties")
+            for k, v in [
+                ("category", d.category),
+                ("severity", d.severity),
+                ("iso", d.iso_mapping or ""),
+                ("failure_mode", d.failure_mode or ""),
+                ("latency_ms", str(d.latency_ms or "")),
+            ]:
+                ET.SubElement(props, "property", name=k, value=v)
+        except Exception:
+            pass
         if r.status == "FAIL":
-            ET.SubElement(tc, "failure", message=f"{r.fault_id} RI {r.resilience_index}")
+            try:
+                d = r.diagnose()
+                msg = f"{r.fault_id} {d.root_cause} RI {r.resilience_index} [{d.severity}]"
+            except Exception:
+                msg = f"{r.fault_id} RI {r.resilience_index}"
+            ET.SubElement(tc, "failure", message=msg)
     tree = ET.ElementTree(suite)
     tree.write(path, encoding="utf-8", xml_declaration=True)

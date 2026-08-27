@@ -41,12 +41,17 @@ scoring:
     recovery: 0.3
     safety: 0.3
   thresholds:
-    grade_a: 90
+    grade_a: 90      # must be > grade_b > grade_c > grade_d
     grade_b: 70
     grade_c: 50
     grade_d: 30
     # grade_f implicit <30
 ```
+
+Validation rules:
+- `weights`: `detection + recovery + safety` must sum to 1.0 (tolerance 1e-6)
+- `thresholds`: `grade_a > grade_b > grade_c > grade_d` enforced by `@model_validator`
+- `faults`: `min_length=1`, `max_length=27`, unique IDs required
 
 Maps to `src/core/resilience_index.py`: `RI=(D*0.4)+(Rec*0.3)+(S*0.3)` normalized 0-100.
 

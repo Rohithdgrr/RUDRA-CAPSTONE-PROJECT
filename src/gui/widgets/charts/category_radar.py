@@ -1,28 +1,74 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem
+"""Category radar — horizontal bar chart showing scores per category."""
+
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtWidgets import QWidget
+
+CATEGORIES = ["Sensor", "Timing", "Comm", "Memory", "Power", "GPIO"]
+CATEGORY_COLORS = {
+    "Sensor": "#3B82F6",
+    "Timing": "#8B5CF6",
+    "Comm": "#F59E0B",
+    "Memory": "#EF4444",
+    "Power": "#10B981",
+    "GPIO": "#F97316",
+}
+
 
 class CategoryRadar(QWidget):
-    def __init__(self):
-        super().__init__()
-        lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("Category Scores (Sensor/Timing/Comm/Memory/Power/GPIO)"))
-        self.table = QTableWidget(1, 6)
-        self.table.setHorizontalHeaderLabels(["Sensor","Timing","Comm","Memory","Power","GPIO"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        for c in range(6):
-            self.table.setItem(0, c, QTableWidgetItem("--"))
-        lay.addWidget(self.table)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(200)
+        self._scores = {c: 0 for c in CATEGORIES}
 
     def set_scores(self, scores: dict):
-        cats = ["Sensor","Timing","Comm","Memory","Power","GPIO"]
-        for i, cat in enumerate(cats):
-            v = scores.get(cat, 0)
-            it = self.table.item(0, i)
-            if it:
-                it.setText(str(v))
-                it.setTextAlignment(int(Qt.AlignmentFlag.AlignCenter))
-                # color by value
-                col = "#4CAF50" if v >=70 else "#FF9800" if v>=50 else "#F44336"
-                it.setBackground = None  # keep default; text color via foreground
+        self._scores = {c: scores.get(c, 0) for c in CATEGORIES}
+        self.update()
 
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+        margin_l, margin_r, margin_t, margin_b = 80, 20, 20, 20
+        bar_h = 24
+        gap = (h - margin_t - margin_b - len(CATEGORIES) * bar_h) // (len(CATEGORIES) + 1)
+
+        font = QFont("Segoe UI", 10)
+        p.setFont(font)
+
+        for i, cat in enumerate(CATEGORIES):
+            y = margin_t + gap + i * (bar_h + gap)
+            score = self._scores[cat]
+            max_bar_w = w - margin_l - margin_r
+
+            # Label
+            p.setPen(QPen(QColor("#A1A1AA")))
+            p.drawText(
+                0,
+                y,
+                margin_l - 8,
+                bar_h,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                cat,
+            )
+
+            # Background bar
+            p.setBrush(QColor("#1C1C32"))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(margin_l, y, max_bar_w, bar_h, 4, 4)
+
+            # Filled bar
+            fill_w = int(max_bar_w * score / 100) if score > 0 else 0
+            if fill_w > 0:
+                color = QColor(CATEGORY_COLORS[cat])
+                p.setBrush(color)
+                p.drawRoundedRect(margin_l, y, fill_w, bar_h, 4, 4)
+
+            # Score text
+            p.setPen(QPen(QColor("#F4F4F5")))
+            text_x = margin_l + fill_w + 8 if fill_w < max_bar_w - 40 else margin_l + fill_w - 30
+            p.drawText(text_x, y, 40, bar_h, Qt.AlignmentFlag.AlignVCenter, f"{score}")
+
+        p.end()

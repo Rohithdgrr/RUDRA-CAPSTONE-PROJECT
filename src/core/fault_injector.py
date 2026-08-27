@@ -31,44 +31,65 @@ FAULT_CATALOG = {
 }
 
 
+import re
+
+# Allowlist for monitor values: numbers, identifiers, paths. Anything with
+# monitor separators (;, &, |, newline, #) is sanitized.
+_SAFE_TOKEN = re.compile(r"[^a-zA-Z0-9_\-./:=+]")
+
+
+def _san(v) -> str:
+    """Sanitize a single param value for safe Renode monitor injection."""
+    s = str(v)
+    # Reject monitor command separators outright — they would allow chaining
+    if any(c in s for c in [";", "\n", "\r", "|", "&", "`", "$", "#"]):
+        raise ValueError(f"Illegal characters in fault param value: {s!r}")
+    # Escape remaining unsafe chars to '_' (conservative)
+    return _SAFE_TOKEN.sub("_", s)
+
+
 def build_fault_command(fault_id: str, params: dict) -> str:
-    """Translate fault ID + params to Renode monitor command."""
+    """Translate fault ID + params to Renode monitor command (sanitized)."""
     p = params or {}
     if fault_id == "SF-01":
-        return f'sysbus WriteDoubleWord {p.get("target","sysbus.i2c0.sensor0")} {p.get("value",0)}'
+        return f"sysbus WriteDoubleWord {_san(p.get('target', 'sysbus.i2c0.sensor0'))} {_san(p.get('value', 0))}"
     if fault_id == "SF-02":
-        return f'sensor AddNoise gaussian {p.get("std_dev",1.0)}'
+        return f"sensor AddNoise gaussian {_san(p.get('std_dev', 1.0))}"
     if fault_id == "SF-03":
-        return f'sensor InjectSpike {p.get("amplitude",999)} {p.get("rate_hz",10)}'
+        return f"sensor InjectSpike {_san(p.get('amplitude', 999))} {_san(p.get('rate_hz', 10))}"
     if fault_id == "SF-04":
-        return f'sensor Drift {p.get("rate",0.1)}'
+        return f"sensor Drift {_san(p.get('rate', 0.1))}"
     if fault_id == "SF-05":
-        return f'sensor AddBias {p.get("offset",1.0)}'
+        return f"sensor AddBias {_san(p.get('offset', 1.0))}"
     if fault_id == "SF-06":
-        return f'sensor Drop {p.get("drop_rate",0.2)}'
+        return f"sensor Drop {_san(p.get('drop_rate', 0.2))}"
     if fault_id == "SF-07":
-        return f'timer Jitter {p.get("jitter_ms",5)}'
+        return f"timer Jitter {_san(p.get('jitter_ms', 5))}"
     if fault_id == "TF-01":
-        return f'cpu Hold {p.get("delay_ms",100)}'
+        return f"cpu Hold {_san(p.get('delay_ms', 100))}"
     if fault_id == "TF-02":
-        return f'rtc Skew {p.get("skew_ppm",100)}'
+        return f"rtc Skew {_san(p.get('skew_ppm', 100))}"
     if fault_id == "TF-03":
-        return f'nvic InjectIRQ {p.get("irq","0")} {p.get("rate_hz",1000)}'
+        return f"nvic InjectIRQ {_san(p.get('irq', '0'))} {_san(p.get('rate_hz', 1000))}"
     if fault_id == "TF-04":
-        return f'watchdog ForceTimeout {p.get("timeout_ms",10)}'
+        return f"watchdog ForceTimeout {_san(p.get('timeout_ms', 10))}"
     if fault_id == "TF-05":
-        return f'cpu RaceInject {p.get("threads",2)}'
+        return f"cpu RaceInject {_san(p.get('threads', 2))}"
     if fault_id.startswith("CF-"):
-        return f'can Inject {fault_id} {p}'
+        params_str = " ".join(f"{_san(k)}={_san(v)}" for k, v in p.items())
+        return f"can Inject {_san(fault_id)} {params_str}"
     if fault_id.startswith("MF-"):
-        return f'memory Inject {fault_id} {p}'
+        params_str = " ".join(f"{_san(k)}={_san(v)}" for k, v in p.items())
+        return f"memory Inject {_san(fault_id)} {params_str}"
     if fault_id.startswith("PF-"):
-        return f'power Inject {fault_id} {p}'
+        params_str = " ".join(f"{_san(k)}={_san(v)}" for k, v in p.items())
+        return f"power Inject {_san(fault_id)} {params_str}"
     if fault_id == "GF-01":
-        return f'gpio SetPin {p.get("pin","0")} {p.get("mode","float")}'
+        return f"gpio SetPin {_san(p.get('pin', '0'))} {_san(p.get('mode', 'float'))}"
     if fault_id == "GF-02":
-        return f'{p.get("periph","adc")} Inject {p.get("value",0)}'
-    return f'# Unknown fault {fault_id} {p}'
+        return f"{_san(p.get('periph', 'adc'))} Inject {_san(p.get('value', 0))}"
+    # Unknown fault — sanitize before echoing back
+    return f"# Unknown fault {_san(fault_id)} {_san(p)}"
 
 
 class FaultInjector:

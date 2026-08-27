@@ -1,79 +1,105 @@
 # 15 — Style Guide (QSS & UX)
 
-> **Files:** `src/gui/styles/dark_theme.qss`, `light_theme.qss`, `resources/icons/*` | `src/gui/utils/qt_helpers.py`
+> **Files:** `src/gui/styles/dark_theme.qss`, `light_theme.qss`, `src/gui/utils/icons.py`
 
 ## 1. Theme Philosophy
 
-- Dark-first: reduces eye strain for long campaigns (`README.md:312`).
-- Embedded-native: sidebar nav, dockable panels, monospace console (`Fira Code`/`Consolas`).
-- Information dense but uncluttered; 60fps PyQtGraph.
+- Dark-first: reduces eye strain for long campaigns.
+- Light theme available via View → Theme menu.
+- Embedded-native: sidebar nav, dockable panels, monospace console.
+- Information dense but uncluttered.
 
 ## 2. Color Palette
 
-| Token | Hex | Usage | Example |
-|-------|-----|-------|---------|
-| PASS/Safe | `#4CAF50` | Table PASS, status safe | `15-STYLE_GUIDE.md:4` |
-| FAIL/Unsafe | `#F44336` | FAIL, unsafe | — |
-| WARNING/Partial | `#FF9800` | Warning | — |
-| INFO | `#2196F3` | Log INFO | — |
-| Grade A | `#2ECC71` | Emerald 90-100 | Gauge |
-| Grade B | `#3498DB` | Blue 70-89 | Gauge |
-| Grade C | `#F1C40F` | Yellow 50-69 | Gauge |
-| Grade D | `#E67E22` | Orange 30-49 | Gauge |
-| Grade F | `#E74C3C` | Red <30 | Gauge |
-| Background | `#1E1E2F` | Main dark | `dark_theme.qss` |
-| Surface | `#2A2A3C` | Cards/docks | — |
-| Text primary | `#E0E0E0` | Labels | — |
-| Text muted | `#9AA0A6` | Hints | — |
+### Dark Theme
 
-Grade colors also map to `08-RESILIENCE_INDEX.md`.
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Background | `#0F0F1A` | Main window background |
+| Surface | `#16162A` | Cards, panels |
+| Surface Hover | `#1E1E35` | Hover states |
+| Border | `#27273A` | Dividers, frames |
+| Text Primary | `#D4D4D8` | Labels, body |
+| Text Muted | `#71717A` | Hints, secondary |
+| Text Bright | `#F4F4F5` | Headings |
+| Brand | `#3B82F6` | Links, active, accent |
+| PASS | `#10B981` | Success, safe |
+| FAIL | `#EF4444` | Error, unsafe |
+| WARNING | `#F59E0B` | Partial, warning |
+| INFO | `#3B82F6` | Info messages |
+| Grade A | `#10B981` | 90-100 |
+| Grade B | `#3B82F6` | 70-89 |
+| Grade C | `#F59E0B` | 50-69 |
+| Grade D | `#F97316` | 30-49 |
+| Grade F | `#EF4444` | <30 |
+
+### Light Theme
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Background | `#F8FAFC` | Main window |
+| Surface | `#FFFFFF` | Cards, panels |
+| Border | `#E5E7EB` | Dividers |
+| Text Primary | `#1F2937` | Labels |
+| Text Muted | `#9CA3AF` | Hints |
+| Brand | `#3B82F6` | Same accent |
 
 ## 3. QSS Structure
 
-`dark_theme.qss` sections:
-```qss
-QMainWindow { background: #1E1E2F; }
-QDockWidget::title { background: #2A2A3C; color: #E0E0E0; padding: 6px; }
-QTableView { gridline-color: #3A3A4C; selection-background: #3498DB; }
-QTextEdit#Console { font-family: "Consolas"; font-size: 9pt; color: #E0E0E0; }
-QProgressBar::chunk { background: #4CAF50; }
-QPushButton { background: #3498DB; border-radius: 4px; padding: 6px 12px; }
-QPushButton:hover { background: #5DADE2; }
+`dark_theme.qss` — 200+ rules covering:
+- `QMainWindow`, `QWidget`, `QMenuBar`, `QMenu`
+- `QDockWidget` (section headers)
+- `QTreeWidget` (sidebar items with hover/active)
+- `QTableWidget` (alternating rows, colored selection)
+- `QPushButton` (primary, stop, save, export variants)
+- `QProgressBar` (gradient chunk blue→purple)
+- `QLineEdit`, `QSpinBox`, `QComboBox` (focus border)
+- `QTextEdit` (console with monospace font)
+- `QScrollBar` (thin 8px, rounded handle)
+- `QTabWidget`, `QSplitter`, `QGroupBox`, `QDialog`
+- `QCheckBox`, `QToolTip`
+- Custom selectors: `#card`, `#summaryCard`, `#sectionLabel`, `#titleLabel`
+
+Apply: `app.setStyleSheet(qss.read_text())` in `src/app.py`.
+
+## 4. Vector Icons
+
+20 icons via `src/gui/utils/icons.py` — programmatic `QPainter` on `QPixmap`:
+
+```python
+from src.gui.utils.icons import AppIcons
+icon = AppIcons.play("#A1A1AA")  # returns QIcon
 ```
 
-Light theme inverts bg/text but keeps grade/status hues.
-
-Apply: `app.setStyleSheet(open("src/gui/styles/dark_theme.qss").read())` in `src/app.py`.
-
-## 4. Icons
-
-`resources/icons/` SVG source + PNG exports 16/32/48/128/256. Naming: `app_icon.svg`, `fault_sensor.svg`, `run.svg`, `stop.svg`. Use `QIcon(":/icons/run.svg")` via Qt resource `*.qrc`.
+- No external SVG/PNG assets required
+- Antialiased rendering at any size
+- Color parameter for dark/light theme adaptation
+- Used in: sidebar, menu bar, buttons, cards
 
 ## 5. Typography
 
-- UI: `Segoe UI` (Win), `San Francisco` (macOS), `Noto Sans` (Linux) — 10pt.
-- Console/logs: `Consolas`/`Fira Code` 9pt monospace.
-- Headings: Bold 12-14pt; code: inline `QLabel` with `background #2A2A3C`.
+- UI: `Segoe UI` (Win), `SF Pro` (macOS), `Noto Sans` (Linux) — 13px
+- Console/logs: `Cascadia Code`, `JetBrains Mono`, `Consolas` — 12px monospace
+- Headings: Bold 22-36px
+- Section labels: 11px uppercase, bold, letter-spacing 1px
 
 ## 6. Components
 
-- Sidebar `QTreeView` indentation 16px, expand/collapse arrows themed.
-- Tables `QTableView + PandasModel` alternating row `#252538`/`#2A2A3C`.
-- Charts PyQtGraph axis color `#9AA0A6`, grid `#3A3A4C`.
-- Gauges circular progress with grade color fill.
+- **Sidebar:** Fixed 220px, sections with headers, vector icons on every item
+- **Summary Cards:** `QFrame#summaryCard` with stat value + label
+- **Tables:** Alternating rows, colored status cells, bold RI values
+- **Charts:** Custom `paintEvent` donut arcs and bars
+- **Console:** Timestamped, color-coded per level, auto-scroll
 
 ## 7. Interaction
 
-- Hover brighten +10%, pressed darken -10%.
-- Tooltips: `QToolTip { background: #3A3A4C; color: #E0E0E0; border: 1px solid #4A4A5C; }`.
-- Shortcuts displayed in `QMenu` with `Ctrl+` hints.
+- Hover brighten, pressed darken
+- Active sidebar item highlighted with blue background
+- Tooltips on all actionable elements
+- Keyboard: standard Qt shortcuts
 
 ## 8. Accessibility
 
-- Contrast ratio ≥4.5:1 for text.
-- Status not color-only: icons + words PASS/FAIL.
-- Scalable SVG icons.
-
-## 9. Adding Styles
-
-Edit `dark_theme.qss` → restart `python -m src.main`; no rebuild. For new widget, add class selector and test both themes.
+- Contrast ratio ≥4.5:1 for text
+- Status not color-only: icons + words PASS/FAIL
+- Vector icons scale cleanly

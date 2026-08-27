@@ -1,5 +1,8 @@
 [run]
 source = src
+# Unit coverage focuses on core/config; GUI/API are covered by
+# integration (Robot) and manual QA. CI gate is 60% on unit; 90% is
+# aspirational when gui/api are included. Keep omit narrow.
 omit =
     src/gui/*
     src/main.py

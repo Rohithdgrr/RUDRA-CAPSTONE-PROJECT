@@ -1,10 +1,13 @@
 """Async workers with QThreadPool."""
-from PyQt6.QtCore import QRunnable, pyqtSignal, QObject
+
+from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
+
 
 class WorkerSignals(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
+
 
 class Worker(QRunnable):
     def __init__(self, fn, *args, **kwargs):
