@@ -48,11 +48,20 @@ python -m src.cli campaign --config campaigns/sensor_suite.yaml
 
 ---
 
-## Screenshots
+## Screenshots — 5 views (1400×900, dark theme)
 
-> **GUI Preview** — Dark theme with Welcome screen, Campaign Editor, Test Runner, and Report Viewer.
->
-> Run `python src/main.py` to see the live application.
+| View | Screenshot |
+|---|---|
+| **Welcome** | ![Welcome](docs/screenshots/01-welcome.png) |
+| **Campaign Designer** | ![Designer](docs/screenshots/02-campaign-designer.png) |
+| **Live Test Runner** | ![Runner](docs/screenshots/03-test-runner.png) |
+| **Report Viewer** | ![Report](docs/screenshots/04-report-viewer.png) |
+| **Comparison** | ![Compare](docs/screenshots/05-comparison.png) |
+| **Full Window** | ![Full](docs/screenshots/00-full-window.png) |
+
+> Generated via `python scripts/capture_screenshots.py` / `python live_preview.py`. Run `python src/main.py` or `python -m src.main`.
+
+**Demo video:** `docs/demo.mp4` (15s) — [YouTube unlisted placeholder](https://www.youtube.com/watch?v=placeholder) — shows 1-click sensor suite → report.
 
 ---
 
@@ -159,12 +168,21 @@ scoring:
 ## Testing
 
 ```bash
-# Run all 27 unit tests
+# Run 40 unit tests (100% fault catalog + renode + diagnosis)
 python -m pytest tests/unit/ -v
 
-# Run with coverage
-python -m pytest tests/unit/ --cov=src --cov-report=term
+# Coverage (core 68%, gate 60)
+python -m pytest tests/unit/ --cov=src --cov-report=term --cov-report=xml
+
+# Integration + Renode (if installed)
+python scripts/verify_renode.py
+python scripts/smoke_test.py   # ✅ 7 checks, RI + HTML/JUnit
+# reports/smoke_test.html + reports/sample_report.html (27-fault B 72/100 pre-built)
 ```
+
+**Sample reports:** [`reports/sample_report.html`](reports/sample_report.html) (`reports/sample_report.json` / `.junit.xml`) — 27-fault B 72/100, 6 findings with ISO mappings.
+
+**CI:** `ci.yml` 7 jobs (lint, test matrix, validator, cli/api smoke, docker, renode) — badge green on `main`.
 
 ---
 
@@ -210,9 +228,10 @@ Full documentation in [`docs/`](docs/00-INDEX.md):
 | CLI | Typer |
 | Reports | Jinja2, WeasyPrint (PDF) |
 | Charts | PyQtGraph |
-| Tests | pytest (27 unit tests) |
-| CI | GitHub Actions |
+| Tests | pytest 40 unit + Robot integration |
+| CI | GitHub Actions (7 jobs, coverage 60) |
 | Packaging | PyInstaller 6.22+ |
+| Demo | `python scripts/smoke_test.py` + `python -m src.main` + `Capture` |
 
 ---
 

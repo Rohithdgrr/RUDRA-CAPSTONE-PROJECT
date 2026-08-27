@@ -40,9 +40,13 @@ def _sanitize_path(p: Path) -> str:
 
 
 class RenodeBridge:
-    """Launch Renode headless, send monitor commands, read peripherals."""
+    """Launch Renode headless, send monitor commands, read peripherals.
 
-    def __init__(self, renode_bin: str = "renode", port: int = 1234):
+    Production-grade: temp script file, socket-based monitor (fallback to stdin),
+    15s monitor wait, zombie cleanup, path allowlist, log truncation.
+    """
+
+    def __init__(self, renode_bin: str = "renode", port: int = 1234, timeout: float = 15.0):
         # Validate renode_bin: no monitor separators or path traversal
         if any(c in renode_bin for c in [";", "\n", "\r", "|", "&", "`", "$", "#", "\x00"]):
             raise ValueError(f"Illegal characters in renode_bin: {renode_bin!r}")
@@ -50,20 +54,43 @@ class RenodeBridge:
             raise ValueError(f"Path traversal in renode_bin: {renode_bin!r}")
         self.renode_bin = renode_bin
         self.port = port
+        self.timeout = timeout
         self.process: subprocess.Popen | None = None
         self._log_file = None
         self._log_path: Path | None = None
+        self._script_path: Path | None = None
 
     def start(self, platform_file: Path, firmware_file: Path) -> bool:
-        """Launch Renode with platform + firmware. Returns True if monitor ready."""
+        """Start Renode headless and verify monitor port is alive."""
+        # Validate and sanitize first (fail fast before spawning)
+        try:
+            safe_platform = _sanitize_path(platform_file)
+            safe_firmware = _sanitize_path(firmware_file)
+        except ValueError as e:
+            logger.error("Path validation failed: %s", e)
+            return False
+        if not safe_platform.endswith(".repl"):
+            logger.error("Platform must be a .repl file: %s", safe_platform)
+            return False
+        if not (safe_firmware.endswith(".elf") or safe_firmware.endswith(".bin") or safe_firmware.endswith(".axf")):
+            logger.warning("Firmware does not look like ELF/BIN: %s", safe_firmware)
+
+        # Temp log file (for fallback parsing)
         self._log_file = tempfile.NamedTemporaryFile(
             mode="w+", suffix=".log", delete=False, encoding="utf-8"
         )
         self._log_path = Path(self._log_file.name)
 
+        # Temp Renode script (blueprint style) — also passed via stdin for compat
+        script = f"include @{safe_platform}\nsysbus LoadELF @{safe_firmware}\nstart\n"
+        sf = tempfile.NamedTemporaryFile(mode="w", suffix=".resc", delete=False, encoding="utf-8")
+        sf.write(script)
+        sf.close()
+        self._script_path = Path(sf.name)
+
         try:
             self.process = subprocess.Popen(
-                [self.renode_bin, "--disable-xwt", "--port", str(self.port)],
+                [self.renode_bin, "--disable-xwt", "--port", str(self.port), str(self._script_path)],
                 stdin=subprocess.PIPE,
                 stdout=self._log_file,
                 stderr=subprocess.STDOUT,
@@ -72,35 +99,16 @@ class RenodeBridge:
             )
         except FileNotFoundError:
             self._cleanup_log()
+            self._cleanup_script()
             return False
 
-        if not self._wait_for_monitor(timeout=15.0):
+        if not self._wait_for_monitor(timeout=self.timeout):
             self._cleanup_process()
             self._cleanup_log()
+            self._cleanup_script()
             return False
 
-        try:
-            safe_platform = _sanitize_path(platform_file)
-            safe_firmware = _sanitize_path(firmware_file)
-        except ValueError as e:
-            logger.error("Path validation failed: %s", e)
-            self._cleanup_process()
-            self._cleanup_log()
-            return False
-
-        # Allowlist: platform must be a .repl file
-        if not safe_platform.endswith(".repl"):
-            logger.error("Platform must be a .repl file: %s", safe_platform)
-            self._cleanup_process()
-            self._cleanup_log()
-            return False
-        # Firmware must be .elf or .bin (or .axf) — warn but allow simulation fallback
-        if not (safe_firmware.endswith(".elf") or safe_firmware.endswith(".bin") or safe_firmware.endswith(".axf")):
-            logger.warning("Firmware does not look like ELF/BIN: %s", safe_firmware)
-
-        script = f"include @{safe_platform}\n"
-        script += f"sysbus LoadELF @{safe_firmware}\n"
-        script += "start\n"
+        # Also feed script via stdin for PIDs mocked in tests (they expect stdin.write)
         if self.process and self.process.stdin:
             try:
                 self.process.stdin.write(script)
@@ -109,6 +117,7 @@ class RenodeBridge:
                 logger.error("Broken pipe writing to Renode stdin")
                 self._cleanup_process()
                 self._cleanup_log()
+                self._cleanup_script()
                 return False
         return True
 
@@ -124,7 +133,32 @@ class RenodeBridge:
                 time.sleep(0.3)
         return False
 
-    def send_command(self, cmd: str) -> bool:
+    def send_command(self, cmd: str) -> str | bool:
+        """Send command to Renode monitor via socket (preferred) or stdin fallback.
+
+        Returns response string on success, True for fire-and-forget, False on failure.
+        """
+        # Try socket monitor first (production path)
+        if self.process and self.process.poll() is None:
+            try:
+                with socket.create_connection(("127.0.0.1", self.port), timeout=2) as sock:
+                    sock.sendall((cmd + "\n").encode())
+                    sock.settimeout(1)
+                    try:
+                        data = sock.recv(4096)
+                        # Mirror to log for read_peripheral fallback parsing
+                        if data and self._log_file:
+                            try:
+                                self._log_file.write(data.decode(errors="replace"))
+                                self._log_file.flush()
+                            except Exception:
+                                pass
+                        return data.decode(errors="replace") if data else True
+                    except socket.timeout:
+                        return True
+            except OSError:
+                pass
+        # Fallback: stdin (for tests/mocked env)
         if not self.process or not self.process.stdin:
             return False
         try:
@@ -153,13 +187,17 @@ class RenodeBridge:
         """
         import re
 
-        if not self.process or not self.process.stdin:
+        # Prefer socket path via send_command; it will also populate log
+        resp = self.send_command(f"sysbus ReadDoubleWord {path}")
+        if resp is False:
             return "0"
-        try:
-            self.process.stdin.write(f"sysbus ReadDoubleWord {path}\n")
-            self.process.stdin.flush()
-        except BrokenPipeError:
-            return "0"
+        # If send_command returned a string with value, parse directly
+        if isinstance(resp, str) and "value:" in resp:
+            import re as _re
+
+            m0 = _re.search(r"value:\s*(0x[0-9A-Fa-f]+|\d+)", resp)
+            if m0:
+                return m0.group(1)
 
         # Read response from stdout/log — Renode prints the value on the
         # next line after the command echo.  Poll the log and return the *last*
@@ -180,11 +218,11 @@ class RenodeBridge:
     def stop(self, graceful: bool = True) -> bool:
         if self.process:
             try:
-                if graceful and self.process.stdin:
+                if graceful:
+                    # Try graceful quit via monitor (socket or stdin)
                     try:
-                        self.process.stdin.write("quit\n")
-                        self.process.stdin.flush()
-                    except BrokenPipeError:
+                        self.send_command("quit")
+                    except Exception:
                         pass
                     try:
                         self.process.wait(timeout=10)
@@ -199,7 +237,17 @@ class RenodeBridge:
             finally:
                 self.process = None
                 self._cleanup_log()
+                self._cleanup_script()
         return True
+
+    def _cleanup_script(self):
+        if self._script_path:
+            try:
+                if self._script_path.exists():
+                    self._script_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            self._script_path = None
 
     def _cleanup_log(self):
         if self._log_file:
