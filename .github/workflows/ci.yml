@@ -82,7 +82,7 @@ jobs:
           if-no-files-found: warn
       - name: Upload to Codecov (ubuntu only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: results/coverage.xml
           fail_ci_if_error: false
