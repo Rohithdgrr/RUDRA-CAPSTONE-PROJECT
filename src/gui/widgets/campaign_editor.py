@@ -13,14 +13,14 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSplitter,
     QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from src.gui.utils.icons import AppIcons
+from src.gui.widgets.fault_table import FaultTable
 
 
 class CampaignEditor(QWidget):
@@ -48,7 +48,16 @@ class CampaignEditor(QWidget):
 
         root.addSpacing(4)
 
-        # ── General Settings Group ────────────────────────────
+        # ── Splitter: Settings (left) + Fault Table (right) ──
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+
+        # Left panel — settings
+        left_panel = QWidget()
+        left_lay = QVBoxLayout(left_panel)
+        left_lay.setContentsMargins(0, 0, 8, 0)
+        left_lay.setSpacing(12)
+
         grp = QGroupBox("General Settings")
         form = QFormLayout()
         form.setSpacing(12)
@@ -90,99 +99,39 @@ class CampaignEditor(QWidget):
         form.addRow("Duration:", settings_row)
 
         grp.setLayout(form)
-        root.addWidget(grp)
+        left_lay.addWidget(grp)
+        left_lay.addStretch()
+        splitter.addWidget(left_panel)
 
-        # ── Fault Selection Table ─────────────────────────────
-        fault_grp = QGroupBox("Fault Selection (27 canonical fault types)")
-        fault_lay = QVBoxLayout()
-        fault_lay.setContentsMargins(16, 20, 16, 16)
-        fault_lay.setSpacing(8)
+        # Right panel — FaultTable
+        right_panel = QWidget()
+        right_lay = QVBoxLayout(right_panel)
+        right_lay.setContentsMargins(8, 0, 0, 0)
+        right_lay.setSpacing(8)
 
-        fault_header = QHBoxLayout()
-        select_all_btn = QPushButton(AppIcons.select("#D4D4D8"), " Select All")
-        select_all_btn.setObjectName("exportBtn")
-        select_all_btn.setFixedWidth(110)
+        fault_header_row = QHBoxLayout()
+        fault_title = QLabel("Fault Selection")
+        fault_title.setObjectName("sectionLabel")
+        fault_header_row.addWidget(fault_title)
+        fault_header_row.addStretch()
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.setObjectName("ghostBtn")
+        select_all_btn.setFixedWidth(90)
         select_all_btn.clicked.connect(self._select_all)
-        fault_header.addWidget(select_all_btn)
-
-        clear_btn = QPushButton(AppIcons.stop("#D4D4D8"), " Clear")
-        clear_btn.setObjectName("exportBtn")
-        clear_btn.setFixedWidth(90)
+        fault_header_row.addWidget(select_all_btn)
+        clear_btn = QPushButton("Clear")
+        clear_btn.setObjectName("ghostBtn")
+        clear_btn.setFixedWidth(70)
         clear_btn.clicked.connect(self._clear_all)
-        fault_header.addWidget(clear_btn)
+        fault_header_row.addWidget(clear_btn)
+        right_lay.addLayout(fault_header_row)
 
-        fault_header.addStretch()
-        fault_lay.addLayout(fault_header)
+        self.fault_table = FaultTable()
+        right_lay.addWidget(self.fault_table)
+        splitter.addWidget(right_panel)
 
-        self.fault_table = QTableWidget(0, 4)
-        self.fault_table.setHorizontalHeaderLabels(["Select", "Fault ID", "Type", "Severity"])
-        self.fault_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self.fault_table.setColumnWidth(0, 40)
-        self.fault_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.fault_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.fault_table.horizontalHeader().setSectionResizeMode(
-            3, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self.fault_table.verticalHeader().setVisible(False)
-        self.fault_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.fault_table.setAlternatingRowColors(True)
-        self.fault_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        fault_lay.addWidget(self.fault_table)
-
-        # Aligned with FAULT_CATALOG (src/core/fault_injector.py) — single source of truth
-        faults = [
-            ("SF-01", "Stuck-at", "HIGH"),
-            ("SF-02", "Gaussian Noise", "MEDIUM"),
-            ("SF-03", "Impulse Noise", "HIGH"),
-            ("SF-04", "Drift", "MEDIUM"),
-            ("SF-05", "Bias", "MEDIUM"),
-            ("SF-06", "Missing Samples", "LOW"),
-            ("SF-07", "Sampling Jitter", "MEDIUM"),
-            ("TF-01", "Deadline Miss", "HIGH"),
-            ("TF-02", "Clock Skew", "HIGH"),
-            ("TF-03", "Interrupt Storm", "CRITICAL"),
-            ("TF-04", "Watchdog Timeout", "MEDIUM"),
-            ("TF-05", "Race Condition", "HIGH"),
-            ("CF-01", "Packet Loss", "HIGH"),
-            ("CF-02", "Latency Spike", "HIGH"),
-            ("CF-03", "Bus Flooding", "MEDIUM"),
-            ("CF-04", "Frame Corruption", "HIGH"),
-            ("CF-05", "Bus-Off State", "MEDIUM"),
-            ("CF-06", "Arbitration Loss", "CRITICAL"),
-            ("MF-01", "Stack Overflow", "CRITICAL"),
-            ("MF-02", "Heap Corruption", "CRITICAL"),
-            ("MF-03", "Flash Bit-Flip", "HIGH"),
-            ("MF-04", "ECC Error", "HIGH"),
-            ("PF-01", "Brownout", "HIGH"),
-            ("PF-02", "Power Glitch", "MEDIUM"),
-            ("PF-03", "Sleep Failure", "HIGH"),
-            ("GF-01", "Pin Float/Short", "MEDIUM"),
-            ("GF-02", "ADC/PWM/DMA", "HIGH"),
-        ]
-        self.fault_table.setRowCount(len(faults))
-        for i, (fid, ftype, sev) in enumerate(faults):
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            chk.setCheckState(
-                Qt.CheckState.Checked if sev in ("HIGH", "CRITICAL") else Qt.CheckState.Unchecked
-            )
-            chk.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.fault_table.setItem(i, 0, chk)
-            self.fault_table.setItem(i, 1, QTableWidgetItem(fid))
-            self.fault_table.setItem(i, 2, QTableWidgetItem(ftype))
-            sev_item = QTableWidgetItem(sev)
-            sev_colors = {
-                "CRITICAL": "#EF4444",
-                "HIGH": "#F97316",
-                "MEDIUM": "#F59E0B",
-                "LOW": "#6B7280",
-            }
-            sev_item.setForeground(self._color(sev_colors.get(sev, "#6B7280")))
-            sev_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.fault_table.setItem(i, 3, sev_item)
-
-        fault_grp.setLayout(fault_lay)
-        root.addWidget(fault_grp)
+        splitter.setSizes([320, 680])
+        root.addWidget(splitter, 1)
 
         # ── Action Buttons ────────────────────────────────────
         btn_row = QHBoxLayout()
@@ -194,14 +143,13 @@ class CampaignEditor(QWidget):
         self.run_btn.clicked.connect(lambda: self.runRequested.emit())
         btn_row.addWidget(self.run_btn)
 
-        self.save_btn = QPushButton(AppIcons.save("#FFFFFF"), "  Save")
-        self.save_btn.setObjectName("saveBtn")
+        self.save_btn = QPushButton(AppIcons.save("#FFFFFF"), "  Save Draft")
+        self.save_btn.setObjectName("ghostBtn")
         self.save_btn.setFixedHeight(42)
         btn_row.addWidget(self.save_btn)
 
         btn_row.addStretch()
         root.addLayout(btn_row)
-        root.addStretch()
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -211,40 +159,22 @@ class CampaignEditor(QWidget):
             self.firmware_edit.setText(path)
             try:
                 p = Path(path)
-                # Efficiently read only first 4 bytes to check ELF magic (avoid loading 100 MB)
                 with p.open("rb") as f:
                     magic = f.read(4)
                 if magic == b"\x7fELF":
-                    self.firmware_edit.setStyleSheet("border-color: #10B981;")
+                    self.firmware_edit.setStyleSheet("border-color: #059669;")
                     self.firmware_edit.setToolTip(f"Valid ELF — {p.stat().st_size:,} bytes")
                 else:
-                    self.firmware_edit.setStyleSheet("border-color: #F59E0B;")
+                    self.firmware_edit.setStyleSheet("border-color: #D97706;")
                     self.firmware_edit.setToolTip("Warning: not ELF magic")
             except Exception:
                 pass
 
     def _select_all(self):
-        for i in range(self.fault_table.rowCount()):
-            it = self.fault_table.item(i, 0)
-            if it:
-                it.setCheckState(Qt.CheckState.Checked)
+        self.fault_table.select_all(True)
 
     def _clear_all(self):
-        for i in range(self.fault_table.rowCount()):
-            it = self.fault_table.item(i, 0)
-            if it:
-                it.setCheckState(Qt.CheckState.Unchecked)
-
-    @staticmethod
-    def _color(hex_str: str):
-        from PyQt6.QtGui import QColor
-
-        return QColor(hex_str)
+        self.fault_table.select_all(False)
 
     def get_selected_faults(self) -> list[str]:
-        ids = []
-        for i in range(self.fault_table.rowCount()):
-            it = self.fault_table.item(i, 0)
-            if it and it.checkState() == Qt.CheckState.Checked:
-                ids.append(self.fault_table.item(i, 1).text())
-        return ids
+        return self.fault_table.get_selected()

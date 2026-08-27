@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 
 from PyQt6.QtCore import QSettings, Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
+    QApplication,
     QDockWidget,
     QFrame,
     QGridLayout,
@@ -13,10 +14,27 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
+
+
+def _is_light() -> bool:
+    return QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+
+
+def _fg_primary() -> str:
+    return "#111827" if _is_light() else "#F4F4F5"
+
+
+def _fg_secondary() -> str:
+    return "#6B7280" if _is_light() else "#A1A1AA"
+
+
+def _fg_muted() -> str:
+    return "#9CA3AF" if _is_light() else "#71717A"
 
 from src.core.campaign import Campaign
 from src.core.test_runner import TestRunner
@@ -55,12 +73,12 @@ class WelcomeScreen(QWidget):
 
         brand = QLabel("RUDRA")
         brand.setFont(QFont("Segoe UI", 36, QFont.Weight.Black))
-        brand.setStyleSheet("color: #3B82F6;")
+        brand.setStyleSheet("color: #2563EB;")
         hero.addWidget(brand)
 
         tagline = QLabel("RenodeResilience Fault Injection & Testing Framework")
         tagline.setFont(QFont("Segoe UI", 16))
-        tagline.setStyleSheet("color: #A1A1AA;")
+        tagline.setStyleSheet(f"color: {_fg_secondary()};")
         hero.addWidget(tagline)
 
         desc = QLabel(
@@ -68,7 +86,7 @@ class WelcomeScreen(QWidget):
             "and comprehensive reporting for embedded firmware on Renode."
         )
         desc.setFont(QFont("Segoe UI", 12))
-        desc.setStyleSheet("color: #71717A;")
+        desc.setStyleSheet(f"color: {_fg_muted()};")
         hero.addWidget(desc)
 
         root.addLayout(hero)
@@ -129,10 +147,10 @@ class WelcomeScreen(QWidget):
             text_col.setSpacing(4)
             t = QLabel(title)
             t.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-            t.setStyleSheet("color: #F4F4F5;")
+            t.setStyleSheet(f"color: {_fg_primary()};")
             text_col.addWidget(t)
             d = QLabel(desc_text)
-            d.setStyleSheet("color: #71717A; font-size: 11px;")
+            d.setStyleSheet(f"color: {_fg_secondary()}; font-size: 11px;")
             d.setWordWrap(True)
             text_col.addWidget(d)
             text_col.addStretch()
@@ -185,19 +203,19 @@ class WelcomeScreen(QWidget):
 
             n = QLabel(name)
             n.setFont(QFont("Segoe UI", 12, QFont.Weight.DemiBold))
-            n.setStyleSheet("color: #F4F4F5;")
+            n.setStyleSheet(f"color: {_fg_primary()};")
             row_lay.addWidget(n)
 
             row_lay.addStretch()
 
             i = QLabel(info)
-            i.setStyleSheet("color: #71717A; font-size: 11px;")
+            i.setStyleSheet(f"color: {_fg_secondary()}; font-size: 11px;")
             row_lay.addWidget(i)
 
             row_lay.addSpacing(16)
 
             d = QLabel(date)
-            d.setStyleSheet("color: #52525B; font-size: 11px;")
+            d.setStyleSheet(f"color: {_fg_muted()}; font-size: 11px;")
             row_lay.addWidget(d)
 
             root.addWidget(row)
@@ -208,7 +226,7 @@ class WelcomeScreen(QWidget):
         footer = QLabel(
             "v1.5  |  27 Faults  |  3 Platforms  |  Python 3.11+  |  PyQt6  |  Renode 1.15+"
         )
-        footer.setStyleSheet("color: #3F3F5A; font-size: 10px;")
+        footer.setStyleSheet(f"color: {_fg_muted()}; font-size: 10px;")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(footer)
 
@@ -359,9 +377,11 @@ class MainWindow(QMainWindow):
         help_menu = menu.addMenu("Help")
         help_menu.addAction("About", self._show_about)
 
+        # F12 shortcut to toggle console
+        QShortcut(QKeySequence("F12"), self, self._toggle_console)
+
         # Theme manager (after menu actions exist)
         try:
-            from PyQt6.QtWidgets import QApplication
             self.theme_manager = ThemeManager(QApplication.instance(), self)
             self.theme_manager.themeChanged.connect(self._on_theme_changed)
             self.theme_manager.set_theme(self._current_theme)
@@ -370,8 +390,8 @@ class MainWindow(QMainWindow):
 
         # Wire property panel to fault selection
         try:
-            self.editor.fault_table.itemSelectionChanged.connect(self._on_fault_selected)
-            self.editor.fault_table.itemChanged.connect(lambda _: self._on_fault_selected())
+            self.editor.fault_table.table.itemSelectionChanged.connect(self._on_fault_selected)
+            self.editor.fault_table.table.itemChanged.connect(lambda _: self._on_fault_selected())
         except Exception:
             pass
 
@@ -630,9 +650,10 @@ class MainWindow(QMainWindow):
                 fid = selected[0]
                 self.props_panel.target.setText(fid)
                 # Update severity from table
-                for i in range(self.editor.fault_table.rowCount()):
-                    if self.editor.fault_table.item(i, 1).text() == fid:
-                        sev = self.editor.fault_table.item(i, 3).text()
+                tbl = self.editor.fault_table.table
+                for i in range(tbl.rowCount()):
+                    if tbl.item(i, 1) and tbl.item(i, 1).text() == fid:
+                        sev = tbl.item(i, 4).text()
                         self.props_panel.severity.setCurrentText(sev)
                         break
         except Exception:

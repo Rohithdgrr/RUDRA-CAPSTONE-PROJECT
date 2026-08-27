@@ -1,10 +1,14 @@
 """Sidebar navigation with vector icons, sections, and hover/active states."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from src.gui.utils.icons import AppIcons
+
+
+def _is_light() -> bool:
+    return QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
 
 
 class SidebarButton(QFrame):
@@ -56,9 +60,11 @@ class SidebarButton(QFrame):
     def set_active(self, active: bool):
         self._active = active
         if active:
+            bg = "#EFF6FF" if _is_light() else "#1E1E35"
+            fg = "#2563EB"
             self.setStyleSheet(
-                "SidebarButton { background: #1E1E35; border-radius: 6px; }"
-                "QLabel { color: #3B82F6 !important; }"
+                f"SidebarButton {{ background: {bg}; border-radius: 6px; }}"
+                f"QLabel {{ color: {fg} !important; }}"
             )
         else:
             self.setStyleSheet("")
@@ -74,12 +80,12 @@ class SidebarSection(QFrame):
         lay.setContentsMargins(12, 0, 12, 0)
         lbl = QLabel(title.upper())
         lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        lbl.setStyleSheet("color: #52525B; letter-spacing: 1px;")
+        lbl.setStyleSheet(f"color: {'#9CA3AF' if _is_light() else '#52525B'}; letter-spacing: 1px;")
         lay.addWidget(lbl)
         lay.addStretch()
         line = QFrame()
         line.setFixedHeight(1)
-        line.setStyleSheet("background: #27273A;")
+        line.setStyleSheet(f"background: {'#E5E7EB' if _is_light() else '#27273A'};")
         lay.addWidget(line)
 
 
@@ -100,7 +106,7 @@ class Sidebar(QWidget):
         # Brand
         brand = QLabel("  RUDRA")
         brand.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        brand.setStyleSheet("color: #3B82F6; padding: 8px 0 16px 0;")
+        brand.setStyleSheet("color: #2563EB; padding: 8px 0 16px 0;")
         brand.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         root.addWidget(brand)
 
@@ -169,7 +175,7 @@ class Sidebar(QWidget):
         # Settings at bottom
         line = QFrame()
         line.setFixedHeight(1)
-        line.setStyleSheet("background: #27273A; margin: 4px 12px;")
+        line.setStyleSheet(f"background: {'#E5E7EB' if _is_light() else '#27273A'}; margin: 4px 12px;")
         root.addWidget(line)
         btn = SidebarButton("Settings", AppIcons.settings("#71717A"))
         btn.clicked.connect(self._on_nav)
@@ -179,7 +185,7 @@ class Sidebar(QWidget):
         # Version
         ver = QLabel("  v1.5")
         ver.setFont(QFont("Segoe UI", 9))
-        ver.setStyleSheet("color: #3F3F5A; padding: 4px 0;")
+        ver.setStyleSheet(f"color: {'#9CA3AF' if _is_light() else '#3F3F5A'}; padding: 4px 0;")
         root.addWidget(ver)
 
     def _on_nav(self, nav_id: str):

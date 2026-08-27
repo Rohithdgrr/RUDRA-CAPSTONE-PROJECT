@@ -70,23 +70,30 @@ class FaultTable(QWidget):
     def _filter(self, text: str = ""):
         txt = (text or self.filter.text()).lower()
         for r in range(self.table.rowCount()):
-            fid = self.table.item(r,1).text().lower() if self.table.item(r,1) else ""
-            cat = self.table.item(r,2).text().lower() if self.table.item(r,2) else ""
-            typ = self.table.item(r,3).text().lower() if self.table.item(r,3) else ""
-            sev = self.table.item(r,4).text().lower() if self.table.item(r,4) else ""
+            it_id = self.table.item(r, 1)
+            it_cat = self.table.item(r, 2)
+            it_type = self.table.item(r, 3)
+            it_sev = self.table.item(r, 4)
+            fid = it_id.text().lower() if it_id else ""
+            cat = it_cat.text().lower() if it_cat else ""
+            typ = it_type.text().lower() if it_type else ""
+            sev = it_sev.text().lower() if it_sev else ""
             show = not txt or txt in fid or txt in cat or txt in typ or txt in sev
             self.table.setRowHidden(r, not show)
 
     def get_selected(self) -> list[str]:
         ids = []
         for r in range(self.table.rowCount()):
-            it = self.table.item(r,0)
-            if it and it.checkState()==Qt.CheckState.Checked:
-                ids.append(self.table.item(r,1).text())
+            it = self.table.item(r, 0)
+            it1 = self.table.item(r, 1)
+            if it and it1 and it.checkState() == Qt.CheckState.Checked:
+                ids.append(it1.text())
         return ids
 
     def select_all(self, checked=True):
         state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
         for r in range(self.table.rowCount()):
             if not self.table.isRowHidden(r):
-                self.table.item(r,0).setCheckState(state)
+                it = self.table.item(r, 0)
+                if it:
+                    it.setCheckState(state)

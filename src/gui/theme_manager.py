@@ -23,9 +23,9 @@ class ThemeManager(QObject):
         super().__init__(parent)
         self.app = app or QApplication.instance()
         self.settings = QSettings("RenodeResilience", "RUDRA")
-        self._current = self.settings.value("theme", "dark", type=str)
+        self._current = self.settings.value("theme", "light", type=str)
         if self._current not in ("light", "dark"):
-            self._current = "dark"
+            self._current = "light"
 
     @property
     def current(self) -> str:

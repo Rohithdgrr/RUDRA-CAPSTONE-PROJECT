@@ -1,7 +1,7 @@
 """Comparison view — side-by-side with delta coloring and icons."""
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -12,6 +12,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+def _is_light() -> bool:
+    return QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
 
 
 class ComparisonView(QWidget):
@@ -67,10 +71,11 @@ class ComparisonView(QWidget):
         lay.setContentsMargins(14, 10, 14, 10)
         lay.setSpacing(2)
         lbl = QLabel(label)
-        lbl.setStyleSheet("color: #71717A; font-size: 11px; font-weight: 600;")
+        lbl.setStyleSheet(f"color: {'#6B7280' if _is_light() else '#71717A'}; font-size: 11px; font-weight: 600;")
         lay.addWidget(lbl)
         val = QLabel(value)
-        val.setStyleSheet(f"color: {color}; font-size: 22px; font-weight: 800;")
+        val.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+        val.setStyleSheet(f"color: {color};")
         lay.addWidget(val)
         frame._val_label = val
         return frame

@@ -1,6 +1,6 @@
 """Test Runner — live progress, summary cards, colored table."""
 
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import QSettings, Qt, pyqtSlot
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFrame,
@@ -17,11 +17,23 @@ from PyQt6.QtWidgets import (
 
 from src.gui.utils.icons import AppIcons
 
-STATUS_COLORS = {
-    "PASS": ("#10B981", "#052E16"),
-    "FAIL": ("#EF4444", "#2D0A0A"),
-    "SKIP": ("#6B7280", "#1F2937"),
-}
+
+def _is_light() -> bool:
+    return QSettings("RenodeResilience", "RUDRA").value("theme", "light") == "light"
+
+
+def _status_colors() -> dict:
+    if _is_light():
+        return {
+            "PASS": ("#059669", "#ECFDF5"),
+            "FAIL": ("#DC2626", "#FEF2F2"),
+            "SKIP": ("#6B7280", "#F3F4F6"),
+        }
+    return {
+        "PASS": ("#10B981", "#052E16"),
+        "FAIL": ("#EF4444", "#2D0A0A"),
+        "SKIP": ("#6B7280", "#1F2937"),
+    }
 
 
 class TestRunnerView(QWidget):
@@ -55,7 +67,7 @@ class TestRunnerView(QWidget):
         self.progress.setFixedHeight(10)
         prog_row.addWidget(self.progress)
         self.eta = QLabel("Waiting...")
-        self.eta.setStyleSheet("color: #71717A; font-size: 12px;")
+        self.eta.setStyleSheet(f"color: {'#6B7280' if _is_light() else '#71717A'}; font-size: 12px;")
         self.eta.setFixedWidth(120)
         prog_row.addWidget(self.eta)
         root.addLayout(prog_row)
@@ -98,7 +110,7 @@ class TestRunnerView(QWidget):
         lay.setContentsMargins(14, 10, 14, 10)
         lay.setSpacing(2)
         lbl = QLabel(label)
-        lbl.setStyleSheet("color: #71717A; font-size: 11px; font-weight: 600;")
+        lbl.setStyleSheet(f"color: {'#6B7280' if _is_light() else '#71717A'}; font-size: 11px; font-weight: 600;")
         lay.addWidget(lbl)
         val = QLabel(value)
         val.setStyleSheet(f"color: {color}; font-size: 22px; font-weight: 800;")
@@ -141,7 +153,7 @@ class TestRunnerView(QWidget):
             item = QTableWidgetItem(val)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if c == 2:
-                fg, bg = STATUS_COLORS.get(status, ("#D4D4D8", "#1C1C32"))
+                fg, bg = _status_colors().get(status, ("#6B7280", "#F3F4F6"))
                 item.setForeground(QColor(fg))
                 item.setBackground(QColor(bg))
                 font = item.font()
