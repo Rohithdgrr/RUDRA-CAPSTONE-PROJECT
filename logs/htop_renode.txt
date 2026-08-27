@@ -1,0 +1,4 @@
+  PID USER  TIME+ COMMAND
+ 1234 app   0:02.15 renode --disable-xwt --port 1234 /tmp/tmpABCD.resc
+ 1235 app   0:00.30 sysbus.i2c0.sensor0 monitor
+ 1236 app   0:00.10 python -m src.cli campaign --config campaigns/sensor_suite.yaml --parallel 2

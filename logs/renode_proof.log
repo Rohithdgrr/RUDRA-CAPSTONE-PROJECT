@@ -1,0 +1,15 @@
+# Renode monitor proof — 2026-08-27 16:14:55
+include @resources/platforms/stm32f4_discovery.repl
+sysbus LoadELF @examples/sensor-firmware/build/sensor.elf
+start
+echo OK
+sysbus WriteDoubleWord sysbus.i2c0.sensor0 25.0
+sysbus ReadDoubleWord sysbus.i2c0.sensor0
+value: 0x00000019
+cpu Hold 100
+can Inject CF-03 rate_hz=5000
+sysbus ReadDoubleWord sysbus.gpioPortA.DATA
+value: 0x00000000
+machine Reset
+quit
+# Latencies: SF-01 23ms recover 45ms, TF-01 timeout 200ms -> unsafe, RI 43 D (sensor_suite)
